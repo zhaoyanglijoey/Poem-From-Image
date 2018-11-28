@@ -8,7 +8,7 @@ class VGG16_fc7_object(nn.Module):
         super(VGG16_fc7_object, self).__init__()
         self.vgg = models.vgg16(pretrained=True)
         for param in self.vgg.parameters():
-            param.require_grad = False
+            param.requires_grad = False
         self.fc7 = nn.Sequential(list(self.vgg.children())[0], list(self.vgg.children())[1][0])
 
     def forward(self, x):
@@ -27,8 +27,12 @@ class PlacesCNN(nn.Module):
         state_dict = {str.replace(k,'module.',''): v for k,v in checkpoint['state_dict'].items()}
         model.load_state_dict(state_dict)
 
+        for param in model.parameters():
+            param.requires_grad = False
+
         layers = list(model.children())[:-1]
         self.backbone = nn.Sequential(*layers)
+        
         
     def forward(self, x):
         return self.backbone(x)
