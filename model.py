@@ -14,6 +14,18 @@ class VGG16_fc7_object(nn.Module):
     def forward(self, x):
         return self.fc7(x)
 
+class Res50_object(nn.Module):
+    def __init__(self):
+        super(Res50_object, self).__init__()
+        ResNet50 = models.resnet50(pretrained=True)
+        for param in ResNet50.parameters():
+            param.requires_grad = False
+        modules = list(ResNet50.children())[:-1]
+        self.feature_layer = nn.Sequential(*modules)
+
+    def forward(self, x):
+        return self.feature_layer(x)
+
 class PlacesCNN(nn.Module):
     def __init__(self, arch='resnet50'):
         super(PlacesCNN, self).__init__()
