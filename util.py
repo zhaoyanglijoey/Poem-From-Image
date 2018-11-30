@@ -1,6 +1,6 @@
 import json
 from tqdm import tqdm
-import sys
+import sys, os
 
 def build_vocab(data):
     sys.stderr.write('building vocab...\n')
@@ -25,3 +25,7 @@ def load_vocab_json(file):
         word2idx = json.load(f)
     idx2word = {idx: word for word, idx in word2idx.items()}
     return word2idx, idx2word
+
+def check_path(path):
+    if not os.path.exists(path):
+        os.mkdir(path)
