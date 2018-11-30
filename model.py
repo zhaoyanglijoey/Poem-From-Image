@@ -5,16 +5,18 @@ import os
 from pytorch_pretrained_bert import BertModel
 
 class PoemImageEmbedModel(nn.Module):
-    def __init__(self, alpha=0.2):
+    def __init__(self, device, alpha=0.2):
         super(PoemImageEmbedModel, self).__init__()
         self.img_embedder = ImageEmbed()
         self.poem_embedder = PoemEmbed()
         self.alpha = alpha
+        self.device = device
 
-    def forward(self, img):
-        return self.img_embedder(img)
+    def normalize(self, t):
+        out = t / torch.norm(t, dim=1, keepdim=True)
+        return out
 
-    def calc_loss(self, img1, ids1, mask1, img2, ids2, mask2):
+    def forward(self, img1, ids1, mask1, img2, ids2, mask2):
         img_embed1 = self.img_embedder(img1)
         poem_embed1 = self.poem_embedder(ids1, mask1)
         img_embed2 = self.img_embedder(img2)
@@ -23,10 +25,16 @@ class PoemImageEmbedModel(nn.Module):
         return self.rank_loss(img_embed1, poem_embed1, img_embed2, poem_embed2)
 
     def rank_loss(self, img_embed1, poem_embed1, img_embed2, poem_embed2):
+        img_embed1 = self.normalize(img_embed1)
+        poem_embed1 = self.normalize(poem_embed1)
+        img_embed2 = self.normalize(img_embed2)
+        poem_embed2 = self.normalize(poem_embed2)
+
+        zero_tensor = torch.zeros(img_embed1.size(0)).to(self.device)
         loss1 = torch.max(self.alpha - torch.sum(img_embed1 * poem_embed1, dim=1) + \
-               torch.sum(img_embed1 * poem_embed2, dim=1), torch.zeros(img_embed1.size(0)))
+               torch.sum(img_embed1 * poem_embed2, dim=1), zero_tensor)
         loss2 = torch.max(self.alpha - torch.sum(poem_embed2 * img_embed2, dim=1) + \
-               torch.sum(poem_embed2 * img_embed1, dim=1), torch.zeros(img_embed1.size(0)))
+               torch.sum(poem_embed2 * img_embed1, dim=1), zero_tensor)
         loss = torch.mean(loss1 + loss2)
 
         return loss

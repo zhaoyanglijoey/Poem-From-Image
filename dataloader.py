@@ -1,12 +1,12 @@
 import torch
 from torch.utils.data import Dataset
 from PIL import Image
-import os, random
+import os, random, sys
 
 def convert_to_bert_ids(seq, tokenizer, max_seq_len):
     tokens = tokenizer.tokenize(seq)
-    if len(tokens) > max_seq_len:
-        tokens = tokens[:max_seq_len-2]
+    if len(tokens) > max_seq_len - 2:
+        tokens = tokens[0:(max_seq_len-2)]
 
     tokens.insert(0, '[CLS]')
     tokens.append('[SEP]')
@@ -15,6 +15,10 @@ def convert_to_bert_ids(seq, tokenizer, max_seq_len):
     padded_ids[:len(ids)] = ids
     mask = [0] * max_seq_len
     mask[:len(ids)] = [1] * len(ids)
+
+    # assert len(padded_ids) == max_seq_len
+    # assert len(mask) == max_seq_len
+
     padded_ids = torch.tensor(padded_ids, dtype=torch.long)
     mask = torch.tensor(mask, dtype=torch.long)
 
