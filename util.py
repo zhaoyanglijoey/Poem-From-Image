@@ -29,3 +29,14 @@ def load_vocab_json(file):
 def check_path(path):
     if not os.path.exists(path):
         os.mkdir(path)
+
+def filter_multim(multim):
+    output = []
+    imgs = os.listdir('data/image/')
+    valid_ids = set()
+    for img in imgs:
+        valid_ids.add(int(os.path.splitext(img)[0]))
+    for entry in multim:
+        if entry['id'] in valid_ids:
+            output.append(entry)
+    return output

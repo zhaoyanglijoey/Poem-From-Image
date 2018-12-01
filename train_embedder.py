@@ -10,7 +10,7 @@ import os, sys, time, argparse, logging
 from dataloader import PoemImageDataset, PoemImageEmbedDataset
 from model import VGG16_fc7_object, PoemImageEmbedModel
 import json
-from util import load_vocab_json, build_vocab, check_path
+from util import load_vocab_json, build_vocab, check_path, filter_multim
 from tqdm import tqdm
 
 logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
@@ -104,21 +104,24 @@ def main():
     argparser.add_argument('--save', default='saved_model/embedder.pth')
     args = argparser.parse_args()
 
-    sys.stderr.write('reading data\n')
+    logging.info('reading data')
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    with open('data/multim_poem.json') as f, open('data/unim_poem.json') as unif:
+    with open('data/multim_poem.json') as f:
         multim = json.load(f)
-        unim = json.load(unif)
+
+    multim = filter_multim(multim)
 
     num_train = int(len(multim) * 0.95)
     train_data = multim[:num_train]
     test_data = multim[num_train:]
+    logging.info('number of training data:{}, number of testing data:{}'.
+                 format(len(train_data), len(test_data)))
 
     if args.pt:
         train_data = train_data[:1000]
         test_data = test_data[:20]
 
-    sys.stderr.write('building model...\n')
+    logging.info('building model...')
     load_model = args.load_model
     if args.load_model is None and args.restore and os.path.exists(args.ckpt):
         load_model = args.ckpt
@@ -127,7 +130,7 @@ def main():
     if args.test:
         pass
     else:
-        sys.stderr.write('start traning\n')
+        logging.info('start traning')
         for e in range(args.num_epoch):
             embed_trainer.train_epoch(e+1, args.log_interval, args.save_interval, args.ckpt)
             embed_trainer.save_model(args.ckpt)
