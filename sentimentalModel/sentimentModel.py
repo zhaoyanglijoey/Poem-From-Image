@@ -23,10 +23,10 @@ preprocessing = False
 FC_IN_SIZE = 2048
 FC_OUT1_SIZE = 1024
 FC_OUT2_SIZE = 128
-FC_OUT3_SIZE = 8
+FC_OUT3_SIZE = 2
 
 
-learning_rate = 0.002
+learning_rate = 0.005
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -64,12 +64,14 @@ class SentimentDataset(Dataset):
         vocab_len = len(emotion_vocab)
         image_info = self.image_list[index]
         image_filename = image_info[0]
-        image_tag = torch.zeros(vocab_len)
+        image_tag = torch.zeros(2)
         # image_tag = torch.zeros(vocab_len + 2)
         emotion = image_info[1]
-        image_tag[emotion_vocab[emotion]] = 1
+        # image_tag[emotion_vocab[emotion]] = 1
         # image_tag[vocab_len] = float(image_info[2])
         # image_tag[vocab_len + 1] = float(image_info[3])
+        image_tag[0] = float(image_info[2])
+        image_tag[1] = float(image_info[3])
         img = torch.tensor([0])
         if preprocessing:
             img = Image.open(self.image_dir + image_filename).convert('RGB')
