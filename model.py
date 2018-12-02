@@ -73,6 +73,20 @@ class VGG16_fc7_object(nn.Module):
     def forward(self, x):
         return self.fc7(x)
 
+class Res50_sentiment(nn.Module):
+    def __init__(self):
+        super(Res50_sentiment, self).__init__()
+        ResNet50 = models.resnet50(pretrained=True)
+        modules = list(ResNet50.children())[:-1]
+        self.backbone = nn.Sequential(*modules)
+        self.linear = nn.Linear(2048, 3)
+
+    def forward(self, x):
+        out = self.backbone(x)
+        out = out.view(out.size(0), -1)
+        out = self.linear(out)
+        return out
+
 class Res50_object(nn.Module):
     def __init__(self):
         super(Res50_object, self).__init__()
