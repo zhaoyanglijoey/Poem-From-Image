@@ -5,7 +5,7 @@ from io import BytesIO
 import json
 import pandas as pd
 
-out_dir = 'data/sentiment_image2/'
+out_dir = 'data/sentiment_image/'
 
 def download_image(row):
     key = row[1]['id']
@@ -47,7 +47,7 @@ def download_image(row):
 
 
 if __name__ == '__main__':
-    df = pd.read_csv('data/image-sentiment-polarity-all.csv')
+    df = pd.read_csv('data/visual_sentiment_cat.csv')
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
     pool = multiprocessing.Pool(12)

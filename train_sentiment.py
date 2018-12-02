@@ -125,13 +125,16 @@ def main():
 
     logging.info('reading data')
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    trainfile = 'data/image-sentiment-polarity-train.csv'
-    testfile = 'data/image-sentiment-polarity-test.csv'
-    img_dir = 'data/sentiment_image2/'
-    train_data = pd.read_csv(trainfile, dtype={'id':int})
-    test_data = pd.read_csv(testfile, dtype={'id':int})
-    train_data = filter_sentiment(train_data, img_dir)
-    test_data = filter_sentiment(test_data, img_dir)
+    # trainfile = 'data/image-sentiment-polarity-train.csv'
+    # testfile = 'data/image-sentiment-polarity-test.csv'
+    trainfile = 'data/visual_sentiment_train.csv'
+    testfile = 'data/visual_sentiment_test.csv'
+
+    img_dir = 'data/sentiment_image/'
+    train_data = pd.read_csv(trainfile, dtype={'id':int, 'disagrees': int, 'agrees': int})
+    test_data = pd.read_csv(testfile, dtype={'id':int, 'disagrees': int, 'agrees': int})
+    # train_data = filter_sentiment(train_data, img_dir)
+    # test_data = filter_sentiment(test_data, img_dir)
 
     logging.info('number of training data:{}, number of testing data:{}'.
                  format(len(train_data), len(test_data)))
