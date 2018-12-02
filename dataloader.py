@@ -101,6 +101,7 @@ class VisualSentimentDataset(Dataset):
         id = entry['id']
         img = Image.open(os.path.join(self.img_dir, '{}.jpg'.format(id))).convert('RGB')
         img = self.transform(img)
+        print(img.shape)
         level = {'Highly negative': 0, 'Negative': 0, 'Neutral': 1, 'Positive': 2, 'Highly positive': 2}
         label = level[entry['label']]
         label = torch.tensor(label, dtype=torch.long)

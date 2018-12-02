@@ -12,6 +12,7 @@ import json
 from util import load_vocab_json, build_vocab, check_path, filter_multim, filter_sentiment
 from tqdm import tqdm
 import pandas as pd
+import numpy as np
 
 logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                     datefmt = '%m/%d/%Y %H:%M:%S',
@@ -33,6 +34,7 @@ class VisualSentimentTrainer():
 
         self.test_transform = transforms.Compose([
             transforms.Resize(224),
+            transforms.CenterCrop(224),
             transforms.ToTensor()
         ])
 
@@ -50,8 +52,9 @@ class VisualSentimentTrainer():
             logger.info('load model from '+ load_model)
             self.model.load_state_dict(torch.load(load_model))
         self.model.to(device)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=3e-4)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=1e-4)
         self.criterion = nn.CrossEntropyLoss()
+        self.scheduler = optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[2, 4, 6, 8], gamma=0.5)
 
     def train_epoch(self, epoch, log_interval, save_interval, ckpt_file):
         self.model.train()
@@ -73,15 +76,33 @@ class VisualSentimentTrainer():
                 elapsed_time = time.time() - start
                 iters_per_sec = (i + 1) / elapsed_time
                 remaining = (num_batches - i - 1) / iters_per_sec
-                remaining_time = time.strftime("%H:%M:%S", time.gmtime(remaining))
+                remaining_fmt = time.strftime("%H:%M:%S", time.gmtime(remaining))
+                elapsed_fmt = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
 
-                print('[{:>2}, {:>4}/{}] running loss:{:.4} acc loss:{:.4} {:.3}iters/s {} left'.format(
+                print('[{:>2}, {:>4}/{}] running loss:{:.4} acc loss:{:.4} {:.3}iters/s {}<{}'.format(
                     epoch, (i + 1), num_batches, running_ls / log_interval, acc_ls /(i+1),
-                    iters_per_sec, remaining_time))
+                    iters_per_sec, elapsed_fmt, remaining_fmt))
                 running_ls = 0
 
             if (i + 1) % save_interval == 0:
                 self.save_model(ckpt_file)
+
+    def test(self):
+        self.model.eval()
+        batches_count = 0
+        data_count = 0
+        num_correct = 0
+        with torch.no_grad():
+            for i, batch in enumerate(tqdm(self.test_loader)):
+                batches_count += 1
+                img, label = tuple(t.to(self.device) for t in batch)
+                data_count += img.shape[0]
+                logits = self.model(img).cpu().numpy()
+                label = label.cpu().numpy()
+                num_correct += np.sum(np.argmax(logits, axis=1) == label)
+
+        accuracy = num_correct / data_count
+        print('accuracy: {:.4}%'.format(accuracy * 100))
 
     def save_model(self, file):
         torch.save(self.model.state_dict(), file)
@@ -90,12 +111,12 @@ class VisualSentimentTrainer():
 def main():
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--load-model', default=None)
-    argparser.add_argument('-e', '--num_epoch', type=int, default=5)
+    argparser.add_argument('-e', '--num_epoch', type=int, default=10)
     argparser.add_argument('-t', '--test', default=False, action='store_true')
     argparser.add_argument('--pt', default=False, action='store_true', help='prototype mode')
-    argparser.add_argument('-b', '--batchsize', type=int, default=4)
-    argparser.add_argument('--log-interval', type=int, default=50)
-    argparser.add_argument('--save-interval', type=int, default=500)
+    argparser.add_argument('-b', '--batchsize', type=int, default=32)
+    argparser.add_argument('--log-interval', type=int, default=10)
+    argparser.add_argument('--save-interval', type=int, default=100)
     argparser.add_argument('-r', '--restore', default=False, action='store_true',
                            help='restore from checkpoint')
     argparser.add_argument('--ckpt', default='saved_model/sentiment_ckpt.pth')
@@ -105,7 +126,7 @@ def main():
     logging.info('reading data')
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     trainfile = 'data/image-sentiment-polarity-train.csv'
-    testfile = 'data/image-sentiment-polarity-train.csv'
+    testfile = 'data/image-sentiment-polarity-test.csv'
     img_dir = 'data/sentiment_image2/'
     train_data = pd.read_csv(trainfile, dtype={'id':int})
     test_data = pd.read_csv(testfile, dtype={'id':int})
@@ -126,11 +147,13 @@ def main():
     sentiment_trainer = VisualSentimentTrainer(train_data, test_data, img_dir, args.batchsize, load_model, device)
     check_path('saved_model')
     if args.test:
-        pass
+        sentiment_trainer.test()
     else:
         logging.info('start traning')
         for e in range(args.num_epoch):
             sentiment_trainer.train_epoch(e+1, args.log_interval, args.save_interval, args.ckpt)
+            sentiment_trainer.scheduler.step()
+            sentiment_trainer.test()
             sentiment_trainer.save_model(args.ckpt)
         sentiment_trainer.save_model(args.save)
 

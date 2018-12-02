@@ -79,12 +79,15 @@ class Res50_sentiment(nn.Module):
         ResNet50 = models.resnet50(pretrained=True)
         modules = list(ResNet50.children())[:-1]
         self.backbone = nn.Sequential(*modules)
-        self.linear = nn.Linear(2048, 3)
+        self.fc1 = nn.Linear(2048, 3)
+        # self.fc2 = nn.Linear(512, 3)
+        # self.relu = nn.ReLU()
 
     def forward(self, x):
         out = self.backbone(x)
         out = out.view(out.size(0), -1)
-        out = self.linear(out)
+        # out = self.fc2(self.relu(self.fc1(out)))
+        out = self.fc1(out)
         return out
 
 class Res50_object(nn.Module):
