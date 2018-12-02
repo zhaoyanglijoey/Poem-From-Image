@@ -18,6 +18,9 @@ def download_image(target):
 
     try:
         response = request.urlopen(url)
+        if response.geturl() != url:
+            print('Warning: Image {} unavailable'.format(key))
+            return
         image_data = response.read()
     except:
         print('Warning: Could not download image {} from {}'.format(key, url))
