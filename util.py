@@ -40,3 +40,17 @@ def filter_multim(multim):
         if entry['id'] in valid_ids:
             output.append(entry)
     return output
+
+
+def filter_sentiment(df, img_dir):
+    imgs = os.listdir(img_dir)
+    valid_ids = set()
+    for img in imgs:
+        valid_ids.add(int(os.path.splitext(img)[0]))
+
+    def valid(id):
+        return True if id in valid_ids else False
+
+    is_valid = df.id.apply(valid)
+    ret = df[is_valid == True]
+    return ret
