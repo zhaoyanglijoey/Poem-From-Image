@@ -5,6 +5,10 @@ import torch.nn.functional as F
 
 
 class DecoderRNN(nn.Module):
+    """
+    Example training file: https://github.com/yunjey/pytorch-tutorial/blob/master/tutorials/03-advanced/image_captioning/train.py
+    Example sampling file: https://github.com/yunjey/pytorch-tutorial/blob/master/tutorials/03-advanced/image_captioning/sample.py
+    """
     def __init__(self, embed_size, hidden_size, vocab_size, max_seq_length=70, sos_index=1):
         """
         Set the hyper-parameters and build the layers."
