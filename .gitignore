@@ -110,3 +110,4 @@ data/vocab.pkl
 .DS_Store
 *.tar
 saved_model/
+debug.ipynb

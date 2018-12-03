@@ -55,11 +55,13 @@ class ImageEmbed(nn.Module):
         super(ImageEmbed, self).__init__()
         self.object_feature = Res50_object()
         self.scene_feature = PlacesCNN()
-        # TODO sentiment feature
-        self.linear = nn.Linear(2048*2, embed_dim)
+        self.sentiment_feature = Res50_sentiment()
+        self.linear = nn.Linear(2048*3, embed_dim)
 
     def forward(self, x):
-        features = torch.cat([self.object_feature(x), self.scene_feature(x)], dim=1)
+        features = torch.cat([self.object_feature(x),
+                              self.scene_feature(x),
+                              self.sentiment_feature.get_feature(x)], dim=1)
         return self.linear(features)
 
 class VGG16_fc7_object(nn.Module):
@@ -72,6 +74,26 @@ class VGG16_fc7_object(nn.Module):
 
     def forward(self, x):
         return self.fc7(x)
+
+class Res50_sentiment(nn.Module):
+    def __init__(self):
+        super(Res50_sentiment, self).__init__()
+        ResNet50 = models.resnet50(pretrained=True)
+        modules = list(ResNet50.children())[:-1]
+        self.backbone = nn.Sequential(*modules)
+        self.fc1 = nn.Linear(2048, 3)
+        # self.fc2 = nn.Linear(512, 3)
+        # self.relu = nn.ReLU()
+
+    def get_feature(self, x):
+        return self.backbone(x).view(x.size(0), -1)
+
+    def forward(self, x):
+        out = self.backbone(x)
+        out = out.view(out.size(0), -1)
+        # out = self.fc2(self.relu(self.fc1(out)))
+        out = self.fc1(out)
+        return out
 
 class Res50_object(nn.Module):
     def __init__(self):
