@@ -111,7 +111,7 @@ class VisualSentimentTrainer():
 def main():
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--load-model', default=None)
-    argparser.add_argument('-e', '--num_epoch', type=int, default=10)
+    argparser.add_argument('-e', '--num_epoch', type=int, default=5)
     argparser.add_argument('-t', '--test', default=False, action='store_true')
     argparser.add_argument('--pt', default=False, action='store_true', help='prototype mode')
     argparser.add_argument('-b', '--batchsize', type=int, default=32)
@@ -125,7 +125,7 @@ def main():
 
     logging.info('reading data')
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    trainfile = 'data/image-sentiment-polarity-train-all.csv'
+    trainfile = 'data/image-sentiment-polarity-all.csv'
     testfile = 'data/image-sentiment-polarity-test.csv'
     # trainfile = 'data/visual_sentiment_train.csv'
     # testfile = 'data/visual_sentiment_test.csv'

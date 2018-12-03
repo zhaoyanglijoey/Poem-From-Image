@@ -18,8 +18,13 @@ logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(messa
                     level = logging.INFO)
 logger = logging.getLogger(__name__)
 
+def load_dataparallel(model, load_model):
+    state_dict_parallel = torch.load(load_model)
+    state_dict = {key[7:]: value for key, value in state_dict_parallel.items()}
+    model.load_state_dict(state_dict)
+
 class PoemImageEmbedTrainer():
-    def __init__(self, train_data, test_data, batchsize, load_model, device):
+    def __init__(self, train_data, test_data, sentiment_model, batchsize, load_model, device):
         self.device = device
         self.train_data = train_data
         self.test_data = test_data
@@ -48,13 +53,16 @@ class PoemImageEmbedTrainer():
         self.test_loader = DataLoader(self.test_set, batch_size=batchsize, num_workers=4)
 
         self.model = PoemImageEmbedModel(device)
+
         self.model = DataParallel(self.model)
+        load_dataparallel(self.model.module.img_embedder.sentiment_feature, sentiment_model)
         if load_model:
             logger.info('load model from '+ load_model)
             self.model.load_state_dict(torch.load(load_model))
         self.model.to(device)
         self.optimizer = optim.Adam(list(self.model.module.poem_embedder.linear.parameters()) + \
-                                    list(self.model.module.img_embedder.linear.parameters()), lr=3e-5)
+                                    list(self.model.module.img_embedder.linear.parameters()), lr=1e-4)
+        self.scheduler = optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[2, 4, 6], gamma=0.33)
 
     def train_epoch(self, epoch, log_interval, save_interval, ckpt_file):
         self.model.train()
@@ -92,12 +100,12 @@ class PoemImageEmbedTrainer():
 def main():
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--load-model', default=None)
-    argparser.add_argument('-e', '--num_epoch', type=int, default=5)
+    argparser.add_argument('-e', '--num_epoch', type=int, default=10)
     argparser.add_argument('-t', '--test', default=False, action='store_true')
     argparser.add_argument('--pt', default=False, action='store_true', help='prototype mode')
-    argparser.add_argument('-b', '--batchsize', type=int, default=4)
-    argparser.add_argument('--log-interval', type=int, default=50)
-    argparser.add_argument('--save-interval', type=int, default=500)
+    argparser.add_argument('-b', '--batchsize', type=int, default=32)
+    argparser.add_argument('--log-interval', type=int, default=10)
+    argparser.add_argument('--save-interval', type=int, default=100)
     argparser.add_argument('-r', '--restore', default=False, action='store_true',
                            help='restore from checkpoint')
     argparser.add_argument('--ckpt', default='saved_model/embedder_ckpt.pth')
@@ -111,9 +119,8 @@ def main():
 
     multim = filter_multim(multim)
 
-    num_train = int(len(multim) * 0.95)
-    train_data = multim[:num_train]
-    test_data = multim[num_train:]
+    train_data = multim
+    test_data = multim
     logging.info('number of training data:{}, number of testing data:{}'.
                  format(len(train_data), len(test_data)))
 
@@ -125,7 +132,9 @@ def main():
     load_model = args.load_model
     if args.load_model is None and args.restore and os.path.exists(args.ckpt):
         load_model = args.ckpt
-    embed_trainer = PoemImageEmbedTrainer(train_data, test_data, args.batchsize, load_model, device)
+
+    sentiment_model = 'saved_model/sentiment_all.pth'
+    embed_trainer = PoemImageEmbedTrainer(train_data, test_data, sentiment_model, args.batchsize, load_model, device)
     check_path('saved_model')
     if args.test:
         pass
