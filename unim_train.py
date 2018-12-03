@@ -55,19 +55,18 @@ def main(args):
     total_step = len(data_loader)
     for epoch in range(args.num_epochs):
         for i, (ids, mask, poems, lengths) in enumerate(tqdm(data_loader)):
-            # print(poem)
-            # print(img)
             ids = ids.to(device)
             mask = mask.to(device)
             poems = poems.to(device)
-            lengths = list(map(lambda length: length - 1, lengths))
+            lengths = lengths.to(device)
             targets = pack_padded_sequence(poems[:, 1:], lengths, batch_first=True)[0]
+
+            decoder.zero_grad()
+            encoder.zero_grad()
 
             poem_embed = encoder(ids, mask)
             outputs = decoder(poem_embed, poems, lengths)
             loss = criterion(outputs, targets)
-            decoder.zero_grad()
-            encoder.zero_grad()
             loss.backward()
             optimizer.step()
 

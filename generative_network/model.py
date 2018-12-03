@@ -20,26 +20,27 @@ class DecoderRNN(nn.Module):
         """
         super(DecoderRNN, self).__init__()
         self.sos_index = sos_index
+        self.device = device
         self.embed = nn.Embedding(vocab_size, embed_size)
         self.gru = nn.GRU(embed_size, hidden_size, num_layers=1, batch_first=True)
         self.linear = nn.Linear(hidden_size, vocab_size)
         self.max_seq_length = max_seq_length
 
-    def forward(self, features, captions, lengths):
+    def forward(self, features, poem_word_indices, lengths):
         """
         Decode image feature vectors and generates captions.
         :param features: image features. (batch_size, feature_size)
-        :param captions: indices of words in captions including <SOS> and <EOS>. (batch_size, max_length)
+        :param poem_word_indices: indices of words in captions including <SOS> and <EOS>. (batch_size, max_length)
         :param lengths: lengths of captions including <SOS> and <EOS> (batch_size, )
         :return: Distribution. (words_in_batch, size_vocab)
         """
         """Decode image feature vectors and generates captions."""
-        embeddings = self.embed(captions)
+        embeddings = self.embed(poem_word_indices)
         packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
         # make sure image features size equal to GRU hidden_size
         hidden_states = features.unsqueeze(0)
-        lstm_outputs, _ = self.gru(packed, hidden_states)
-        outputs = self.linear(lstm_outputs[0])
+        gru_outputs, _ = self.gru(packed, hidden_states)
+        outputs = self.linear(gru_outputs[0])
         return outputs
 
     def sample(self, features):

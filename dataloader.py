@@ -180,11 +180,11 @@ def get_poem_poem_dataset(batch_size, shuffle, num_workers,json_obj, tokenizer, 
         mask = torch.stack(mask, 0)
 
         # Merge captions (from tuple of 1D tensor to 2D tensor).
-        lengths = [len(word_indices) for word_indices in word_indices_list]
+        lengths = torch.tensor([len(word_indices) - 1 for word_indices in word_indices_list]).long()
         targets = torch.zeros(len(word_indices_list), max(lengths)).long()
         for i, word_indices in enumerate(word_indices_list):
-            end = lengths[i]
-            targets[i, :end] = word_indices[:end]
+            end = len(word_indices)
+            targets[i, :end] = word_indices
         return ids, mask, targets, lengths
 
     poem_poem_dataset = PoemPoemDataset(json_obj, tokenizer, max_seq_len, word2idx)
