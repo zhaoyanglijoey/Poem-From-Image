@@ -50,10 +50,12 @@ def main(args):
     criterion = nn.CrossEntropyLoss()
     params = list(decoder.parameters())
     optimizer = torch.optim.Adam(params, lr=args.learning_rate)
+    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 4], gamma=0.5)
 
     sys.stderr.write('Start training...\n')
     total_step = len(data_loader)
     for epoch in range(args.num_epochs):
+        scheduler.step()
         for i, (ids, mask, poems, lengths) in enumerate(tqdm(data_loader)):
             ids = ids.to(device)
             mask = mask.to(device)
