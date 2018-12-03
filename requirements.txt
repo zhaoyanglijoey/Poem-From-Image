@@ -10,3 +10,4 @@ nbimporter
 torch
 torchvision
 allennlp
+pytorch_pretrained_ber==0.2.0
