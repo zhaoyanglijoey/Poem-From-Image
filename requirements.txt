@@ -1,0 +1,12 @@
+tqdm
+numpy
+scipy
+matplotlib
+pandas
+sklearn
+nltk
+notebook
+nbimporter
+torch
+torchvision
+allennlp

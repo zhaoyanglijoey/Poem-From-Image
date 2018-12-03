@@ -12,15 +12,19 @@ from model import VGG16_fc7_object, PoemImageEmbedModel
 import json
 from util import load_vocab_json, build_vocab
 from tqdm import tqdm
+import argparse
+import util
 
 
-def main():
+def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     with open('data/multim_poem.json') as f, open('data/unim_poem.json') as unif:
         multim = json.load(f)
         unim = json.load(unif)
 
-    word2idx, idx2word = build_vocab(unim)
+    # make sure vocab exists
+    word2idx, idx2word = util.read_vocab_pickle(args.vocab_path)
+
     num_train = int(len(multim) * 0.95)
     train_data = multim[:num_train]
     test_data = multim[num_train:]
@@ -55,4 +59,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model_path', type=str, default='models/' , help='path for saving trained models')
+    parser.add_argument('--vocab_path', type=str, default='data/vocab.pkl', help='path for vocabulary file')
+    args = parser.parse_args()
+    main(args)
