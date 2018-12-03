@@ -9,7 +9,7 @@ class DecoderRNN(nn.Module):
     Example training file: https://github.com/yunjey/pytorch-tutorial/blob/master/tutorials/03-advanced/image_captioning/train.py
     Example sampling file: https://github.com/yunjey/pytorch-tutorial/blob/master/tutorials/03-advanced/image_captioning/sample.py
     """
-    def __init__(self, embed_size, hidden_size, vocab_size, max_seq_length=70, sos_index=1):
+    def __init__(self, embed_size, hidden_size, vocab_size, device, max_seq_length=70, sos_index=1):
         """
         Set the hyper-parameters and build the layers."
         :param embed_size: word embedding size
@@ -52,7 +52,7 @@ class DecoderRNN(nn.Module):
         batch_size = features.shape[0]
 
         # use <sos> as init input
-        start = torch.full((batch_size, 1), self.sos_index, dtype=torch.int).long()  # start symbol index is 1
+        start = torch.full((batch_size, 1), self.sos_index, dtype=torch.int).long().to(self.device)  # start symbol index is 1
         inputs = self.embed(start)  # inputs: (batch_size, 1, embed_size)
 
         # use img features as init hidden_states

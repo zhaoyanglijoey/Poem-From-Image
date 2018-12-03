@@ -2,6 +2,7 @@ import torch
 from torch.utils.data import Dataset
 from PIL import Image
 import os, random, sys
+import util
 
 def convert_to_bert_ids(seq, tokenizer, max_seq_len):
     tokens = tokenizer.tokenize(seq)
@@ -123,3 +124,75 @@ class VisualSentimentDataset(Dataset):
         # label = torch.tensor(label, dtype=torch.long)
 
         return img, label
+
+
+class PoemPoemDataset(Dataset):
+    def __init__(self, json_obj, tokenizer, max_seq_len, word2idx):
+        self.json_obj = json_obj
+        self.tokenizer = tokenizer
+        self.max_seq_len = max_seq_len
+        self.word2idx = word2idx
+
+    def __len__(self):
+        return len(self.json_obj)
+
+    def __getitem__(self, item):
+        entry = self.json_obj[item]
+
+        # prepare for poem embedder
+        ids, mask = convert_to_bert_ids(entry['poem'], self.tokenizer, self.max_seq_len)
+
+        # prepare for rnn
+        tokens = util.process_one_poem(entry['poem'])
+
+        word_indices = [self.word2idx['<SOS>']] + [self.word2idx[word] for word in tokens] + [self.word2idx['<EOS>']]
+        word_indices = torch.tensor(word_indices, dtype=torch.int64)
+
+        return ids, mask, word_indices
+
+
+def get_poem_poem_dataset(batch_size, shuffle, num_workers,json_obj, tokenizer, max_seq_len, word2idx):
+
+    def poem_poem_collate_fn(data):
+        """Creates mini-batch tensors from the list of tuples (ids, mask, word_indices).
+
+        We should build custom collate_fn rather than using default collate_fn,
+        because merging caption (including padding) is not supported in default.
+
+        Args:
+            data: list of tuple (ids, mask, word_indices).
+                @ids: used in embedding
+                @mask: used in embedding
+                @word_indices: word indices with shape (num_words)
+
+        Returns:
+            @ids: (batch_size, ...)
+            @mask： (batch_size, ...)
+            targets: torch tensor of shape (batch_size, padded_length).
+            lengths: list; valid length for each padded poem.
+        """
+        # Sort a data list by caption length (descending order).
+        data.sort(key=lambda x: len(x[2]), reverse=True)
+        ids, mask, word_indices_list = zip(*data)
+
+        # Merge images (from tuple of 3D tensor to 4D tensor).
+        ids = torch.stack(ids, 0)
+        mask = torch.stack(mask, 0)
+
+        # Merge captions (from tuple of 1D tensor to 2D tensor).
+        lengths = [len(word_indices) for word_indices in word_indices_list]
+        targets = torch.zeros(len(word_indices_list), max(lengths)).long()
+        for i, word_indices in enumerate(word_indices_list):
+            end = lengths[i]
+            targets[i, :end] = word_indices[:end]
+        return ids, mask, targets, lengths
+
+    poem_poem_dataset = PoemPoemDataset(json_obj, tokenizer, max_seq_len, word2idx)
+    data_loader = torch.utils.data.DataLoader(
+        dataset=poem_poem_dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
+        collate_fn=poem_poem_collate_fn,
+    )
+    return data_loader

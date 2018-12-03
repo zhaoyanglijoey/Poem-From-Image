@@ -13,6 +13,18 @@ def add_word(word2idx, idx2word, word):
         idx2word[idx] = word
 
 
+def process_one_poem(poem):
+    """
+    from string to tokens
+    :param poem: poem string
+    :return: list: tokens
+    """
+
+    poem = poem.replace('\n', ' . ')  # use "." as new line symbol?
+    tokens = nltk.tokenize.word_tokenize(poem)
+    return tokens
+
+
 def build_vocab(data, threshold):
     counter = collections.Counter()
     sys.stderr.write('building vocab...\n')
@@ -20,17 +32,16 @@ def build_vocab(data, threshold):
     idx2word = {}
     add_word(word2idx, idx2word, '<PAD>')  # padding
     add_word(word2idx, idx2word, '<SOS>')  # start of poem
-    # add_word(word2idx, idx2word, '<EOS>')  # end of sentence (end of poem)
-    add_word(word2idx, idx2word, '<EOL>')  # end of line
+    add_word(word2idx, idx2word, '<EOS>')  # end of sentence (end of poem)
+    # add_word(word2idx, idx2word, '<EOL>')  # end of line
     add_word(word2idx, idx2word, '<UNK>')  # known
 
     sys.stderr.write('Parsing data...\n')
     for entry in tqdm(data):
-        poem = entry['poem'].replace('\n', ' . ')  # use "." as new line symbol?
-        tokens = nltk.tokenize.word_tokenize(poem)
+        tokens = process_one_poem(entry['poem'])
         counter.update(tokens)
 
-    words = [word for word, cnt in counter.items() if cnt >= threshold]
+    words = [word for word, cnt in counter.items()]
 
     sys.stderr.write('Adding words...\n')
     for word in tqdm(words):
