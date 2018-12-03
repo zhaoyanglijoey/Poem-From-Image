@@ -52,9 +52,9 @@ class VisualSentimentTrainer():
             logger.info('load model from '+ load_model)
             self.model.load_state_dict(torch.load(load_model))
         self.model.to(device)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=1e-4)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=5e-5)
         self.criterion = nn.CrossEntropyLoss()
-        self.scheduler = optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[2, 4, 6, 8], gamma=0.5)
+        self.scheduler = optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[2, 4], gamma=0.5)
 
     def train_epoch(self, epoch, log_interval, save_interval, ckpt_file):
         self.model.train()
@@ -125,16 +125,16 @@ def main():
 
     logging.info('reading data')
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    # trainfile = 'data/image-sentiment-polarity-train.csv'
-    # testfile = 'data/image-sentiment-polarity-test.csv'
-    trainfile = 'data/visual_sentiment_train.csv'
-    testfile = 'data/visual_sentiment_test.csv'
+    trainfile = 'data/image-sentiment-polarity-train-all.csv'
+    testfile = 'data/image-sentiment-polarity-test.csv'
+    # trainfile = 'data/visual_sentiment_train.csv'
+    # testfile = 'data/visual_sentiment_test.csv'
 
-    img_dir = 'data/sentiment_image/'
-    train_data = pd.read_csv(trainfile, dtype={'id':int, 'disagrees': int, 'agrees': int})
-    test_data = pd.read_csv(testfile, dtype={'id':int, 'disagrees': int, 'agrees': int})
-    # train_data = filter_sentiment(train_data, img_dir)
-    # test_data = filter_sentiment(test_data, img_dir)
+    img_dir = 'data/polarity_image/'
+    train_data = pd.read_csv(trainfile, dtype={'id':int})
+    test_data = pd.read_csv(testfile, dtype={'id':int})
+    train_data = filter_sentiment(train_data, img_dir)
+    test_data = filter_sentiment(test_data, img_dir)
 
     logging.info('number of training data:{}, number of testing data:{}'.
                  format(len(train_data), len(test_data)))

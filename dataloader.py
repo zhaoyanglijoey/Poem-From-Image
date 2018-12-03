@@ -102,24 +102,24 @@ class VisualSentimentDataset(Dataset):
         img = Image.open(os.path.join(self.img_dir, '{}.jpg'.format(id))).convert('RGB')
         img = self.transform(img)
 
-        # level = {'Highly negative': 0, 'Negative': 0,0 'Neutral': 1, 'Positive': 2, 'Highly positive': 2}
-        # label = level[entry['label']]
-        # label = torch.tensor(label, dtype=torch.long)
-
-        label_map = {'negative': 0, 'neutral': 1, 'positive': 2}
-        positive_emotions = ['amusement', 'awe', 'excitement', 'contentment']
-        negative_emotions = ['anger', 'disgust', 'fear', 'sadness']
-
-        if entry['disagrees'] > entry['agrees']:
-                label = label_map['neutral']
-        else:
-            if entry['emotion'] in positive_emotions:
-                label = label_map['positive']
-            elif entry['emotion'] in negative_emotions:
-                label = label_map['negative']
-            else:
-                print('Error: unknown emotion {}'.format(entry['emotion']))
-                exit(-1)
+        level = {'Highly negative': 0, 'Negative': 0, 'Neutral': 1, 'Positive': 2, 'Highly positive': 2}
+        label = level[entry['label']]
         label = torch.tensor(label, dtype=torch.long)
+
+        # label_map = {'negative': 0, 'neutral': 1, 'positive': 2}
+        # positive_emotions = ['amusement', 'awe', 'excitement', 'contentment']
+        # negative_emotions = ['anger', 'disgust', 'fear', 'sadness']
+
+        # if entry['disagrees'] > entry['agrees']:
+        #         label = label_map['neutral']
+        # else:
+        #     if entry['emotion'] in positive_emotions:
+        #         label = label_map['positive']
+        #     elif entry['emotion'] in negative_emotions:
+        #         label = label_map['negative']
+        #     else:
+        #         print('Error: unknown emotion {}'.format(entry['emotion']))
+        #         exit(-1)
+        # label = torch.tensor(label, dtype=torch.long)
 
         return img, label
