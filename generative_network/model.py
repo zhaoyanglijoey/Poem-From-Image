@@ -5,22 +5,21 @@ import torch.nn.functional as F
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, embed_size, hidden_size, vocab_size, num_layers, max_seq_length=20, sos_index=1):
+    def __init__(self, embed_size, hidden_size, vocab_size, max_seq_length=70, sos_index=1):
         """
         Set the hyper-parameters and build the layers."
-        :param embed_size:
+        :param embed_size: word embedding size
         :param hidden_size: hidden size of GRU. Make sure equal to size of image features
-        :param vocab_size:
-        :param num_layers:
-        :param max_seq_length:
+        :param vocab_size: size of vocabulary
+        :param max_seq_length: the number of words at most
         :param sos_index: start of sentence: index (usually 1)
         """
         super(DecoderRNN, self).__init__()
         self.sos_index = sos_index
         self.embed = nn.Embedding(vocab_size, embed_size)
-        self.gru = nn.GRU(embed_size, hidden_size, num_layers, batch_first=True)
+        self.gru = nn.GRU(embed_size, hidden_size, num_layers=1, batch_first=True)
         self.linear = nn.Linear(hidden_size, vocab_size)
-        self.max_seg_length = max_seq_length
+        self.max_seq_length = max_seq_length
 
     def forward(self, features, captions, lengths):
         """
@@ -55,7 +54,7 @@ class DecoderRNN(nn.Module):
         # use img features as init hidden_states
         hidden_states = features.unsqueeze(0)  # add one dimension as num_layers * num_directions (which is 1)
 
-        for i in range(self.max_seg_length):
+        for i in range(self.max_seq_length):
             lstm_outputs, hidden_states = self.gru(inputs, hidden_states)  # lstm_outputs: (batch_size, 1, hidden_size)
             outputs = self.linear(lstm_outputs.squeeze(1))  # outputs:  (batch_size, vocab_size)
             _, predicted = outputs.max(1)  # predicted: (batch_size)
