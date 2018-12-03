@@ -181,7 +181,7 @@ def get_poem_poem_dataset(batch_size, shuffle, num_workers,json_obj, tokenizer, 
 
         # Merge captions (from tuple of 1D tensor to 2D tensor).
         lengths = torch.tensor([len(word_indices) - 1 for word_indices in word_indices_list]).long()
-        targets = torch.zeros(len(word_indices_list), max(lengths)).long()
+        targets = torch.zeros(len(word_indices_list), max(lengths) + 1).long()
         for i, word_indices in enumerate(word_indices_list):
             end = len(word_indices)
             targets[i, :end] = word_indices
