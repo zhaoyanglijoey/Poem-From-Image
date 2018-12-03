@@ -38,11 +38,12 @@ def main(args):
 
     # init encode & decode model
     encoder = PoemImageEmbedModel(device)
-    encoder.load_state_dict(torch.load(args.model_path))
-    encoder = encoder.poem_embedder.to(device)
-    decoder = DecoderRNN(args.embed_size, args.hidden_size, len(word2idx), device).to(device)
-
     encoder = DataParallel(encoder)
+    encoder.load_state_dict(torch.load(args.model_path))
+    encoder = encoder.module.poem_embedder.to(device)
+    encoder = DataParallel(encoder)
+
+    decoder = DecoderRNN(args.embed_size, args.hidden_size, len(word2idx), device).to(device)
     decoder = DataParallel(decoder)
 
     # optimization config
