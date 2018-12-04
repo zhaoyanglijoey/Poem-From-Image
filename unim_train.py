@@ -25,7 +25,7 @@ def main(args):
         multim = json.load(f)
         unim = json.load(unif)
 
-    with open('data/poem_features', 'rb') as f:
+    with open('data/poem_features.pkl', 'rb') as f:
         features = pickle.load(f)
 
 
@@ -93,8 +93,8 @@ if __name__ == '__main__':
     parser.add_argument('--hidden-size', type=int, default=512, help='dimension of lstm hidden states')
 
     parser.add_argument('--num_epochs', type=int, default=5)
-    parser.add_argument('--num-workers', type=int, default=2)
-    parser.add_argument('--batch-size', type=int, default=8)
+    parser.add_argument('--num-workers', type=int, default=4)
+    parser.add_argument('--batch-size', type=int, default=32)
     parser.add_argument('--learning-rate', type=float, default=0.0001)
     args = parser.parse_args()
     main(args)

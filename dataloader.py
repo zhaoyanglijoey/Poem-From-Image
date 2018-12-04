@@ -142,7 +142,7 @@ class PoemPoemDataset(Dataset):
 
         # prepare for poem embedder
         # ids, mask = convert_to_bert_ids(entry['poem'], self.tokenizer, self.max_seq_len)
-        feature = self.features[entry['id']]
+        feature = torch.tensor(self.features[entry['id']])
         # prepare for rnn
         tokens = util.process_one_poem(entry['poem'])
 
@@ -173,7 +173,7 @@ def get_poem_poem_dataset(batch_size, shuffle, num_workers, json_obj, features, 
             lengths: list; valid length for each padded poem.
         """
         # Sort a data list by caption length (descending order).
-        data.sort(key=lambda x: len(x[2]), reverse=True)
+        data.sort(key=lambda x: len(x[1]), reverse=True)
         features, word_indices_list = zip(*data)
 
         # Merge images (from tuple of 3D tensor to 4D tensor).
