@@ -151,7 +151,7 @@ class PoemPoemDataset(Dataset):
         return ids, mask, word_indices
 
 
-def get_poem_poem_dataset(batch_size, shuffle, num_workers,json_obj, tokenizer, max_seq_len, word2idx):
+def get_poem_poem_dataset(batch_size, shuffle, num_workers, json_obj, tokenizer, max_seq_len, word2idx):
 
     def poem_poem_collate_fn(data):
         """Creates mini-batch tensors from the list of tuples (ids, mask, word_indices).
