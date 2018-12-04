@@ -20,7 +20,7 @@ def process_one_poem(poem):
     :return: list: tokens
     """
 
-    poem = poem.replace('\n', ' . ')  # use "." as new line symbol?
+    # poem = poem.replace('\n', ' . ')  # use "." as new line symbol?
     tokens = nltk.tokenize.word_tokenize(poem)
     return tokens
 

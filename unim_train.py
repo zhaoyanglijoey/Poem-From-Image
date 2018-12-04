@@ -83,8 +83,8 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model-path', type=str, default='saved_model/embedder.pth' , help='path for loading pre-trained models')
-    parser.add_argument('--save-model-path', type=str, default='saved_model' , help='path for saving trained models')
-    parser.add_argument('--vocab-path', type=str, default='data/vocab.pkl', help='path for vocabulary file')
+    parser.add_argument('--save-model-path', type=str, default='saved_model', help='path for saving trained models')
+    parser.add_argument('--vocab-path', type=str, default='data/vocab_no_new_line.pkl', help='path for vocabulary file')
     parser.add_argument('--poem-path', type=str, default='data/unim_poem.json', help='path for train poem json file')
     parser.add_argument('--log-step', type=int, default=10, help='step size for prining log info')
     parser.add_argument('--save-step', type=int, default=1000, help='step size for saving trained models')
