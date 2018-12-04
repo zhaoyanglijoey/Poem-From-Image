@@ -20,6 +20,7 @@ def sample_from_poem(poem, encoder, decoder, bert_tokenizer, bert_max_seq_len, i
     result = []
     samped_indices = decoder.sample(poem_embed)
     samped_indices = samped_indices.cpu().numpy()[0]
+    print(samped_indices)
     for word_idx in samped_indices:
         word = idx2word[word_idx]
         if word == '.':
@@ -53,7 +54,7 @@ def main(args):
 
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(word2idx), device).to(device)
     decoder = DataParallel(decoder)
-    # decoder.load_state_dict(torch.load(args.decoder_path))
+    decoder.load_state_dict(torch.load(args.decoder_path))
     decoder = decoder.module
 
     poem = args.poem
@@ -66,7 +67,7 @@ if __name__ == '__main__':
     parser.add_argument('--poem', type=str, required=True, help='input poem for generating poem')
     parser.add_argument('--encoder-path', type=str, default='saved_model/embedder.pth',
                         help='path for trained encoder')
-    parser.add_argument('--decoder-path', type=str, default='saved_model/decoder-5.ckpt',
+    parser.add_argument('--decoder-path', type=str, default='saved_model/decoder-1.ckpt',
                         help='path for trained decoder')
     parser.add_argument('--vocab-path', type=str, default='data/vocab.pkl', help='path for vocabulary wrapper')
 
