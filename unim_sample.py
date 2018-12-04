@@ -11,15 +11,15 @@ import dataloader
 
 def sample_from_poem(poem, encoder, decoder, bert_tokenizer, bert_max_seq_len, idx2word, device):
     ids, mask = dataloader.convert_to_bert_ids(poem, bert_tokenizer, bert_max_seq_len)
-    ids = ids.to(device)
-    mask = mask.to(device)
+    ids = ids.unsqueeze(0).to(device)
+    mask = mask.unsqueeze(0).to(device)
 
     # encode
     poem_embed = encoder(ids, mask)
     # decode
     result = []
     samped_indices = decoder.sample(poem_embed)
-    samped_indices = samped_indices.cpu().numpy()
+    samped_indices = samped_indices.cpu().numpy()[0]
     for word_idx in samped_indices:
         word = idx2word[word_idx]
         if word == '.':
@@ -53,7 +53,8 @@ def main(args):
 
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(word2idx), device).to(device)
     decoder = DataParallel(decoder)
-    decoder.load_state_dict(torch.load(args.decoder_path))
+    # decoder.load_state_dict(torch.load(args.decoder_path))
+    decoder = decoder.module
 
     poem = args.poem
     result = sample_from_poem(poem, encoder, decoder, bert_tokenizer, bert_max_seq_len, idx2word, device)
@@ -70,8 +71,9 @@ if __name__ == '__main__':
     parser.add_argument('--vocab-path', type=str, default='data/vocab.pkl', help='path for vocabulary wrapper')
 
     # Model parameters (should be same as paramters in train.py)
-    parser.add_argument('--embed-size', type=int, default=256, help='dimension of word embedding vectors')
-    parser.add_argument('--hidden-size', type=int, default=256, help='dimension of lstm hidden states')
+    parser.add_argument('--embed-size', type=int, default=512, help='dimension of word embedding vectors')
+    parser.add_argument('--hidden-size', type=int, default=512, help='dimension of lstm hidden states')
     parser.add_argument('--num-layers', type=int, default=1, help='number of layers in lstm')
     args = parser.parse_args()
+    # print(args.poem)
     main(args)
