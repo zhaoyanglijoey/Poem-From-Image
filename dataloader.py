@@ -127,8 +127,9 @@ class VisualSentimentDataset(Dataset):
 
 
 class PoemPoemDataset(Dataset):
-    def __init__(self, json_obj, tokenizer, max_seq_len, word2idx):
+    def __init__(self, json_obj, features, tokenizer, max_seq_len, word2idx):
         self.json_obj = json_obj
+        self.features = features
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.word2idx = word2idx
@@ -140,18 +141,18 @@ class PoemPoemDataset(Dataset):
         entry = self.json_obj[item]
 
         # prepare for poem embedder
-        ids, mask = convert_to_bert_ids(entry['poem'], self.tokenizer, self.max_seq_len)
-
+        # ids, mask = convert_to_bert_ids(entry['poem'], self.tokenizer, self.max_seq_len)
+        feature = self.features[entry['id']]
         # prepare for rnn
         tokens = util.process_one_poem(entry['poem'])
 
         word_indices = [self.word2idx['<SOS>']] + [self.word2idx[word] for word in tokens] + [self.word2idx['<EOS>']]
         word_indices = torch.tensor(word_indices, dtype=torch.int64)
 
-        return ids, mask, word_indices
+        return feature, word_indices
 
 
-def get_poem_poem_dataset(batch_size, shuffle, num_workers,json_obj, tokenizer, max_seq_len, word2idx):
+def get_poem_poem_dataset(batch_size, shuffle, num_workers, json_obj, features, tokenizer, max_seq_len, word2idx):
 
     def poem_poem_collate_fn(data):
         """Creates mini-batch tensors from the list of tuples (ids, mask, word_indices).
@@ -173,11 +174,12 @@ def get_poem_poem_dataset(batch_size, shuffle, num_workers,json_obj, tokenizer, 
         """
         # Sort a data list by caption length (descending order).
         data.sort(key=lambda x: len(x[2]), reverse=True)
-        ids, mask, word_indices_list = zip(*data)
+        features, word_indices_list = zip(*data)
 
         # Merge images (from tuple of 3D tensor to 4D tensor).
-        ids = torch.stack(ids, 0)
-        mask = torch.stack(mask, 0)
+        # ids = torch.stack(ids, 0)
+        # mask = torch.stack(mask, 0)
+        features = torch.stack(features, 0)
 
         # Merge captions (from tuple of 1D tensor to 2D tensor).
         lengths = torch.tensor([len(word_indices) - 1 for word_indices in word_indices_list]).long()
@@ -185,9 +187,9 @@ def get_poem_poem_dataset(batch_size, shuffle, num_workers,json_obj, tokenizer, 
         for i, word_indices in enumerate(word_indices_list):
             end = len(word_indices)
             targets[i, :end] = word_indices
-        return ids, mask, targets, lengths
+        return features, targets, lengths
 
-    poem_poem_dataset = PoemPoemDataset(json_obj, tokenizer, max_seq_len, word2idx)
+    poem_poem_dataset = PoemPoemDataset(json_obj, features, tokenizer, max_seq_len, word2idx)
     data_loader = torch.utils.data.DataLoader(
         dataset=poem_poem_dataset,
         batch_size=batch_size,
