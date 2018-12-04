@@ -4,7 +4,7 @@ import sys, os
 import collections
 import nltk
 import pickle
-
+from pytorch_pretrained_bert import BertTokenizer, BasicTokenizer
 
 def add_word(word2idx, idx2word, word):
     if word not in word2idx:
@@ -49,6 +49,33 @@ def build_vocab(data, threshold):
 
     return word2idx, idx2word
 
+def build_vocab_bert(data, threshold):
+    counter = collections.Counter()
+    sys.stderr.write('building vocab...\n')
+    word2idx = {}
+    idx2word = {}
+    # add_word(word2idx, idx2word, '<PAD>')  # padding
+    add_word(word2idx, idx2word, '[CLS]')  # start of poem
+    add_word(word2idx, idx2word, '[SEP]')  # end of sentence (end of poem)
+    # add_word(word2idx, idx2word, '<EOL>')  # end of line
+    add_word(word2idx, idx2word, '[UNK]')  # known
+
+    basic_tokenizer = BasicTokenizer()
+
+    sys.stderr.write('Parsing data...\n')
+    for entry in tqdm(data):
+        # tokens = process_one_poem(entry['poem'])
+        tokens = basic_tokenizer.tokenize(entry['poem'])
+        # counter.update(tokens)
+        [add_word(word2idx, idx2word, word) for word in tokens]
+
+    # words = [word for word, cnt in counter.items()]
+    #
+    # sys.stderr.write('Adding words...\n')
+    # for word in tqdm(words):
+    #     add_word(word2idx, idx2word, word)
+
+    return word2idx, idx2word
 
 def read_vocab_pickle(file):
     if not os.path.exists(file):

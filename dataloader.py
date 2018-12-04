@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, TensorDataset
 from PIL import Image
 import os, random, sys
 import util
@@ -55,6 +55,67 @@ class PoemImageDataset(Dataset):
         img = self.transform(img)
 
         return img, word_ind
+
+def aligned_ids(seq, basic_tokenizer, tokenizer, word2idx, max_seq_len):
+    tokens = tokenizer.tokenize(seq)
+    if len(tokens) > max_seq_len - 2:
+        tokens = tokens[0:(max_seq_len-2)]
+
+    tokens.insert(0, '[CLS]')
+    tokens.append('[SEP]')
+    ids = tokenizer.convert_tokens_to_ids(tokens)
+    padded_ids = [0] * max_seq_len
+    padded_ids[:len(ids)] = ids
+    attention_mask = [0] * max_seq_len
+    attention_mask[:len(ids)] = [1] * len(ids)
+
+    padded_ids = torch.tensor(padded_ids, dtype=torch.long)
+    attention_mask = torch.tensor(attention_mask, dtype=torch.long)
+
+    basic_tokens = basic_tokenizer.tokenize(seq)
+    basic_tokens.insert(0, '[CLS]')
+    align_mask = [0] * max_seq_len
+
+    word_ind = []
+    i = 0
+    for j, token in enumerate(tokens):
+        if token.startswith('##'):
+            continue
+        else:
+            if token=='[SEP]':
+                word_ind.append(word2idx['[SEP]'])
+                align_mask[j] = 1
+                break
+            assert basic_tokens[i].startswith(token)
+            word_ind.append(word2idx[basic_tokens[i]])
+            align_mask[j] = 1
+            i += 1
+    align_mask = torch.tensor(align_mask, dtype=torch.long)
+    word_ind = torch.tensor(word_ind, dtype=torch.long)
+
+    return padded_ids, attention_mask, align_mask, word_ind
+
+
+
+def build_unim_dataset(data, features, basic_tokenizer, tokenizer, word2idx, max_seq_len=256):
+    id_list = []
+    mask_list = []
+    feature_list = []
+    dataloader = []
+    for entry in data:
+        id, attn_mask, align_mask, word_ind = aligned_ids(
+            entry['poem'], basic_tokenizer, tokenizer, word2idx, max_seq_len)
+        # feature = features[entry['id']]
+        # feature_list.append(feature)
+        # id_list.append(id)
+        # mask_list.append(attn_mask)
+        dataloader.append((id, attn_mask, align_mask, word_ind))
+    # ids = torch.stack(id_list, 0)
+    # masks = torch.stack(mask_list, 0)
+    # feature_tensors = torch.tensor(feature_list)
+    # dataset = TensorDataset(ids, masks, feature_tensors)
+
+    return dataloader
 
 class PoemImageEmbedDataset(Dataset):
     def __init__(self, data, img_dir, tokenizer, max_seq_len, transform = None):

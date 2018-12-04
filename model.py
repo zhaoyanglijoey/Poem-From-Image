@@ -4,6 +4,19 @@ import torch.nn as nn
 import os
 from pytorch_pretrained_bert import BertModel
 
+class BertGenerator(nn.Module):
+    def __init__(self, vocab_size):
+        super(BertGenerator, self).__init__()
+        self.bert = BertModel.from_pretrained('bert-base-uncased')
+        self.linear = nn.Linear(768, vocab_size)
+
+    def forward(self, ids, mask):
+        encoded_layers, _ = self.bert(ids, attention_mask=mask, output_all_encoded_layers=False)
+        outputs = self.linear(encoded_layers)
+        return outputs
+
+
+
 class PoemImageEmbedModel(nn.Module):
     def __init__(self, device, alpha=0.2):
         super(PoemImageEmbedModel, self).__init__()
