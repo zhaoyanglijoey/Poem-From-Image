@@ -74,15 +74,15 @@ def main(args):
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Perplexity: {:5.4f}'
                       .format(epoch, args.num_epochs, i, total_step, loss.item(), np.exp(loss.item())))
 
-            # Save the model checkpoints
-            if (i+1) % args.save_step == 0:
-                torch.save(decoder.state_dict(), os.path.join(
-                    args.model_path, 'decoder-{}-{}.ckpt'.format(epoch+1, i+1)))
+        # Save the model checkpoints
+        torch.save(decoder.state_dict(), os.path.join(
+            args.save_model_path, 'decoder-{}.ckpt'.format(epoch+1)))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model-path', type=str, default='saved_model/embedder.pth' , help='path for saving trained models')
+    parser.add_argument('--model-path', type=str, default='saved_model/embedder.pth' , help='path for loading pre-trained models')
+    parser.add_argument('--save-model-path', type=str, default='saved_model' , help='path for saving trained models')
     parser.add_argument('--vocab-path', type=str, default='data/vocab.pkl', help='path for vocabulary file')
     parser.add_argument('--poem-path', type=str, default='data/unim_poem.json', help='path for train poem json file')
     parser.add_argument('--log-step', type=int, default=10, help='step size for prining log info')
@@ -94,6 +94,6 @@ if __name__ == '__main__':
     parser.add_argument('--num_epochs', type=int, default=5)
     parser.add_argument('--num-workers', type=int, default=2)
     parser.add_argument('--batch-size', type=int, default=8)
-    parser.add_argument('--learning-rate', type=float, default=0.001)
+    parser.add_argument('--learning-rate', type=float, default=0.0001)
     args = parser.parse_args()
     main(args)
