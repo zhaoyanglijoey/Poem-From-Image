@@ -9,7 +9,7 @@ from pytorch_pretrained_bert import BertTokenizer
 import os, sys, time
 from dataloader import PoemImageDataset, PoemImageEmbedDataset, get_poem_poem_dataset
 from model import VGG16_fc7_object, PoemImageEmbedModel
-import json
+import json, pickle
 from util import load_vocab_json, build_vocab
 from torch.nn.utils.rnn import pack_padded_sequence
 from generative_network.model import DecoderRNN
@@ -25,6 +25,10 @@ def main(args):
         multim = json.load(f)
         unim = json.load(unif)
 
+    with open('data/poem_features.pkl', 'rb') as f:
+        features = pickle.load(f)
+
+
     # make sure vocab exists
     word2idx, idx2word = util.read_vocab_pickle(args.vocab_path)
 
@@ -33,40 +37,35 @@ def main(args):
     bert_max_seq_len = 100
 
     # create data loader. the data will be in decreasing order of length
-    data_loader = get_poem_poem_dataset(args.batch_size, shuffle=True, num_workers=args.num_workers, json_obj=unim,
+    data_loader = get_poem_poem_dataset(args.batch_size, shuffle=True, num_workers=args.num_workers, json_obj=unim, features=features,
                                         max_seq_len=bert_max_seq_len, word2idx=word2idx, tokenizer=bert_tokenizer)
 
     # init encode & decode model
-    encoder = PoemImageEmbedModel(device)
-    encoder = DataParallel(encoder)
-    encoder.load_state_dict(torch.load(args.model_path))
-    encoder = encoder.module.poem_embedder.to(device)
-    encoder = DataParallel(encoder)
+    # encoder = PoemImageEmbedModel(device)
+    # encoder = DataParallel(encoder)
+    # encoder.load_state_dict(torch.load(args.model_path))
+    # encoder = encoder.module.poem_embedder.to(device)
+    # encoder = DataParallel(encoder)
 
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(word2idx), device).to(device)
     decoder = DataParallel(decoder)
 
     # optimization config
     criterion = nn.CrossEntropyLoss()
-    params = list(decoder.parameters())
-    optimizer = torch.optim.Adam(params, lr=args.learning_rate)
-    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 4], gamma=0.5)
+    optimizer = torch.optim.Adam(decoder.parameters(), lr=args.learning_rate)
+    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 4, 6], gamma=0.33)
 
     sys.stderr.write('Start training...\n')
     total_step = len(data_loader)
     for epoch in range(args.num_epochs):
         scheduler.step()
-        for i, (ids, mask, poems, lengths) in enumerate(tqdm(data_loader)):
-            ids = ids.to(device)
-            mask = mask.to(device)
-            poems = poems.to(device)
-            lengths = lengths.to(device)
+        for i, (batch) in enumerate(tqdm(data_loader)):
+            poem_embed, poems, lengths = [t.to(device) for t in batch]
             targets = pack_padded_sequence(poems[:, 1:], lengths, batch_first=True)[0]
 
             decoder.zero_grad()
-            encoder.zero_grad()
 
-            poem_embed = encoder(ids, mask)
+            # poem_embed = encoder(ids, mask)
             outputs = decoder(poem_embed, poems, lengths)
             loss = criterion(outputs, targets)
             loss.backward()
@@ -94,8 +93,9 @@ if __name__ == '__main__':
     parser.add_argument('--hidden-size', type=int, default=512, help='dimension of lstm hidden states')
 
     parser.add_argument('--num_epochs', type=int, default=5)
-    parser.add_argument('--num-workers', type=int, default=2)
-    parser.add_argument('--batch-size', type=int, default=8)
+
+    parser.add_argument('--num-workers', type=int, default=4)
+    parser.add_argument('--batch-size', type=int, default=32)
     parser.add_argument('--learning-rate', type=float, default=0.0001)
     args = parser.parse_args()
     main(args)
