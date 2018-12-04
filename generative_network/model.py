@@ -39,7 +39,8 @@ class DecoderRNN(nn.Module):
         packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
         # make sure image features size equal to GRU hidden_size
         hidden_states = features.unsqueeze(0)
-        gru_outputs, _ = self.gru(packed, hidden_states)
+        # gru_outputs, _ = self.gru(packed, hidden_states)
+        gru_outputs, _ = self.gru(packed)  # FIXME: remove embed
         outputs = self.linear(gru_outputs[0])
         return outputs
 
@@ -50,14 +51,16 @@ class DecoderRNN(nn.Module):
         :return: contents of poem. (batch_size, max_seq_length)
         """
         sampled_ids = []
-        batch_size = features.shape[0]
+        # batch_size = features.shape[0]
+        batch_size = 1  # FIXME: remove embed
 
         # use <sos> as init input
         start = torch.full((batch_size, 1), self.sos_index, dtype=torch.int).long().to(self.device)  # start symbol index is 1
         inputs = self.embed(start)  # inputs: (batch_size, 1, embed_size)
 
         # use img features as init hidden_states
-        hidden_states = features.unsqueeze(0)  # add one dimension as num_layers * num_directions (which is 1)
+        # hidden_states = features.unsqueeze(0)  # add one dimension as num_layers * num_directions (which is 1)
+        hidden_states = None  # FIXME: remove embed
 
         for i in range(self.max_seq_length):
             lstm_outputs, hidden_states = self.gru(inputs, hidden_states)  # lstm_outputs: (batch_size, 1, hidden_size)

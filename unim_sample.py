@@ -38,7 +38,8 @@ def main(args):
     # make sure vocab exists
     word2idx, idx2word = util.read_vocab_pickle(args.vocab_path)
     # will be used in embedder
-    bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    # bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    bert_tokenizer = None  # FIXME: remove embed
     bert_max_seq_len = 100
 
     # # create data loader. the data will be in decreasing order of length
@@ -46,11 +47,12 @@ def main(args):
     #                                     max_seq_len=bert_max_seq_len, word2idx=word2idx, tokenizer=bert_tokenizer)
 
     # init encode & decode model
-    encoder = PoemImageEmbedModel(device)
-    encoder = DataParallel(encoder)
-    encoder.load_state_dict(torch.load(args.encoder_path))
-    encoder = encoder.module.poem_embedder.to(device)
-    encoder = DataParallel(encoder)
+    # encoder = PoemImageEmbedModel(device)
+    # encoder = DataParallel(encoder)
+    # encoder.load_state_dict(torch.load(args.encoder_path))
+    # encoder = encoder.module.poem_embedder.to(device)
+    # encoder = DataParallel(encoder)
+    encoder = None  # FIXME: remove embed
 
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(word2idx), device).to(device)
     decoder = DataParallel(decoder)

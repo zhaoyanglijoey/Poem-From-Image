@@ -33,7 +33,8 @@ def main(args):
     word2idx, idx2word = util.read_vocab_pickle(args.vocab_path)
 
     # will be used in embedder
-    bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    # bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    bert_tokenizer = None  # FIXME: remove embed
     bert_max_seq_len = 100
 
     # create data loader. the data will be in decreasing order of length

@@ -142,7 +142,8 @@ class PoemPoemDataset(Dataset):
 
         # prepare for poem embedder
         # ids, mask = convert_to_bert_ids(entry['poem'], self.tokenizer, self.max_seq_len)
-        feature = torch.tensor(self.features[entry['id']])
+        # feature = torch.tensor(self.features[entry['id']])
+        feature = torch.tensor(0)  # FIXME: remove embed
         # prepare for rnn
         tokens = util.process_one_poem(entry['poem'])
 
