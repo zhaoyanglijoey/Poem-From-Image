@@ -10,12 +10,14 @@ import dataloader
 
 
 def sample_from_poem(poem, encoder, decoder, bert_tokenizer, bert_max_seq_len, idx2word, device):
-    ids, mask = dataloader.convert_to_bert_ids(poem, bert_tokenizer, bert_max_seq_len)
-    ids = ids.unsqueeze(0).to(device)
-    mask = mask.unsqueeze(0).to(device)
+    # FIXME: remove embed
+    # ids, mask = dataloader.convert_to_bert_ids(poem, bert_tokenizer, bert_max_seq_len)
+    # ids = ids.unsqueeze(0).to(device)
+    # mask = mask.unsqueeze(0).to(device)
 
     # encode
-    poem_embed = encoder(ids, mask)
+    # poem_embed = encoder(ids, mask)
+    poem_embed = None  # FIXME: remove embed
     # decode
     result = []
     samped_indices = decoder.sample(poem_embed)
