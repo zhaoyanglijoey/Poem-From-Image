@@ -2,18 +2,71 @@ import torch
 import torchvision.models as models
 import torch.nn as nn
 import os
-from pytorch_pretrained_bert import BertModel
+from pytorch_pretrained_bert import BertModel, BertForMaskedLM
+from dataloader import aligned_ids, convert_to_bert_ids, convert_to_bert_ids_no_sep
+
+class BertLMGenerator(nn.Module):
+    def __init__(self, vocab_size):
+        super(BertLMGenerator, self).__init__()
+        self.bert = BertForMaskedLM.from_pretrained('bert-base-uncased')
+
+    def forward(self, ids, attn_mask, masked_lm_labels=None):
+
+        return self.bert(ids, attention_mask=attn_mask, masked_lm_labels=masked_lm_labels)
+
+
+    def generate(self, feature, max_gen_len, basic_tokenizer, tokenizer, word2idx, idx2word, max_seq_len, device):
+        seq = ''
+        feature = feature.unsqueeze(0).to(device)
+        pred_words = []
+        for i in range(max_gen_len):
+            id, attn_mask = convert_to_bert_ids_no_sep(seq, tokenizer, max_seq_len)
+            id = id.unsqueeze(0).to(device)
+            attn_mask = attn_mask.unsqueeze(0).to(device)
+            outputs = self.forward(id, attn_mask)
+            # print(attn_mask[0].sum()-1)
+            pred_ind = torch.argmax(outputs[0][attn_mask[0].sum()-2], dim=-1).long().cpu().item()
+            next_word = tokenizer.convert_ids_to_tokens([pred_ind])[0]
+            if next_word == '[SEP]':
+                return pred_words
+            pred_words.append(next_word)
+            seq = ' '.join(pred_words)
+
+        return pred_words
 
 class BertGenerator(nn.Module):
     def __init__(self, vocab_size):
         super(BertGenerator, self).__init__()
         self.bert = BertModel.from_pretrained('bert-base-uncased')
-        self.linear = nn.Linear(768, vocab_size)
+        self.linear = nn.Linear(768+512, vocab_size)
+        self.dropout = nn.Dropout()
 
-    def forward(self, ids, mask):
+    def forward(self, ids, mask, align_mask, feature):
         encoded_layers, _ = self.bert(ids, attention_mask=mask, output_all_encoded_layers=False)
-        outputs = self.linear(encoded_layers)
+        align_encoded = encoded_layers[align_mask == 1]
+        align_encoded = self.dropout(align_encoded)
+        feature_exp = feature.unsqueeze(1).repeat(1, encoded_layers.size(1), 1)
+        feature_exp = feature_exp[align_mask == 1]
+        outputs = self.linear(torch.cat([align_encoded, feature_exp], dim=-1))
         return outputs
+
+    def generate(self, feature, max_gen_len, basic_tokenizer, tokenizer, word2idx, idx2word, max_seq_len, device):
+        seq = ''
+        feature = feature.unsqueeze(0).to(device)
+        for i in range(max_gen_len):
+            id, attn_mask, align_mask, word_ind, length_m1 = aligned_ids(
+            seq, basic_tokenizer, tokenizer, word2idx, max_seq_len)
+            id = id.unsqueeze(0).to(device)
+            attn_mask = attn_mask.unsqueeze(0).to(device)
+            align_mask = align_mask.unsqueeze(0).to(device)
+            outputs = self.forward(id, attn_mask, align_mask, feature)
+            pred_ind = torch.argmax(outputs, dim=-1)
+            pred_words = [idx2word[idx.item()] for idx in pred_ind]
+            if pred_words[-1] == '[SEP]':
+                return pred_words
+            seq = ' '.join(pred_words)
+
+        return pred_words
 
 
 
