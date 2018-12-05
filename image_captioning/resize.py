@@ -14,7 +14,7 @@ def resize_image(image_dir, output_dir, image, size):
             img = img.resize(size, Image.ANTIALIAS)
             img.save(os.path.join(output_dir, image), img.format)
 
-pool = ThreadPool(4)
+pool = ThreadPool(6)
 
 def main(args):
     image_dir = args.image_dir

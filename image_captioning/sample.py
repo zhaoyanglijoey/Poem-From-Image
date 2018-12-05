@@ -63,8 +63,8 @@ def main(args):
     
     # Print out the image and the generated caption
     print (sentence)
-    image = Image.open(args.image)
-    plt.imshow(np.asarray(image))
+    # image = Image.open(args.image)
+    # plt.imshow(np.asarray(image))
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
