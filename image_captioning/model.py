@@ -24,7 +24,7 @@ class EncoderCNN(nn.Module):
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, embed_size, hidden_size, vocab_size, num_layers, max_seq_length=20, sos_index=1):
+    def __init__(self, embed_size, hidden_size, vocab_size, num_layers, device, max_seq_length=20, sos_index=1):
         """
         Set the hyper-parameters and build the layers."
         :param embed_size:
@@ -40,6 +40,7 @@ class DecoderRNN(nn.Module):
         self.gru = nn.GRU(embed_size, hidden_size, num_layers, batch_first=True)
         self.linear = nn.Linear(hidden_size, vocab_size)
         self.max_seg_length = max_seq_length
+        self.device = device
 
     def forward(self, features, captions, lengths):
         """
@@ -68,7 +69,7 @@ class DecoderRNN(nn.Module):
         batch_size = features.shape[0]
 
         # use <sos> as init input
-        start = torch.full((batch_size, 1), self.sos_index, dtype=torch.int).long()  # start symbol index is 1
+        start = torch.full((batch_size, 1), self.sos_index, dtype=torch.int).long().to(self.device)  # start symbol index is 1
         inputs = self.embed(start)  # inputs: (batch_size, 1, embed_size)
 
         # use img features as init hidden_states

@@ -38,7 +38,7 @@ def main(args):
 
     # Build the models
     encoder = EncoderCNN(args.embed_size).to(device)
-    decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab), args.num_layers).to(device)
+    decoder = DecoderRNN(args.embed_size, args.hidden_size, len(vocab), args.num_layers, device).to(device)
     
     # Loss and optimizer
     criterion = nn.CrossEntropyLoss()
