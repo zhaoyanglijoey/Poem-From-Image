@@ -31,7 +31,8 @@ def main(args):
     unim_dataset = dataloader.UnimDataset(unim, features, basic_tokenizer, tokenizer, word2idx, max_seq_len=100)
     unim_dataloader = DataLoader(unim_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
 
-    model = BertLMGenerator(len(word2idx))
+    model = BertGenerator(len(word2idx))
+    # model = BertLMGenerator(len(word2idx))
     model = DataParallel(model)
     if args.restore:
         model.load_state_dict(torch.load(args.ckpt))
@@ -41,11 +42,11 @@ def main(args):
 
     criterion = nn.CrossEntropyLoss(reduction='elementwise_mean')
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 3], gamma=0.33)
+    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 3, 5], gamma=0.33)
 
     sys.stderr.write('Start training...\n')
     total_step = len(unim_dataloader)
-
+    model.train()
     for epoch in range(args.num_epochs):
         scheduler.step()
         running_ls = 0
@@ -53,17 +54,17 @@ def main(args):
         start = time.time()
         for i, (batch) in enumerate(unim_dataloader):
             id, attn_mask, align_mask, word_ind, lengths_m1, feature = [t.to(device) for t in batch]
-            # outputs = model(id, attn_mask, align_mask, feature)
-            # # aligned_outputs = outputs[align_mask == 1]
-            #
+            outputs = model(id, attn_mask, align_mask, feature)
+            # aligned_outputs = outputs[align_mask == 1]
+
             # word_ind[:, 0] = 0
-            # targets = word_ind[word_ind!=0]
-            # loss = criterion(outputs, targets)
-            targets = id.clone()
-            targets[:, 0] = 0
-            targets = torch.cat([targets[:, 1:], targets[:, 0].unsqueeze(1) ], dim=1)
-            targets[targets==0] = -1
-            loss = model(id, attn_mask, targets)
+            targets = word_ind[word_ind!=0]
+            loss = criterion(outputs, targets)
+            # targets = id.clone()
+            # targets[:, 0] = 0
+            # targets = torch.cat([targets[:, 1:], targets[:, 0].unsqueeze(1) ], dim=1)
+            # targets[targets==0] = -1
+            # loss = model(id, attn_mask, targets)
             loss.backward(torch.ones_like(loss))
             running_ls += loss.mean().item()
             acc_ls += loss.mean().item()
@@ -93,9 +94,9 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--save', type=str, default='saved_model/bertlm_generator.pth', help='path for saving trained models')
+    parser.add_argument('--save', type=str, default='saved_model/bert_generator_fix.pth', help='path for saving trained models')
     parser.add_argument('--load', type=str)
-    parser.add_argument('--ckpt', default='saved_model/bertlm_generator_ckpt.pth')
+    parser.add_argument('--ckpt', default='saved_model/bert_generator_fix_ckpt.pth')
     parser.add_argument('--vocab-path', type=str, default='data/vocab.pkl', help='path for vocabulary file')
     parser.add_argument('--poem-path', type=str, default='data/unim_poem.json', help='path for train poem json file')
     parser.add_argument('--log-step', type=int, default=50, help='step size for prining log info')
@@ -107,8 +108,8 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--num-epochs', type=int, default=10)
 
     parser.add_argument('--num-workers', type=int, default=4)
-    parser.add_argument('--batch-size', type=int, default=96)
-    parser.add_argument('--lr', type=float, default=3e-6)
+    parser.add_argument('-b', '--batch-size', type=int, default=96)
+    parser.add_argument('--lr', type=float, default=1e-5)
     parser.add_argument('--pt', default=False, action='store_true', help='prototype mode')
     parser.add_argument('-r', '--restore', default=False, action='store_true', help='restore from check point')
     args = parser.parse_args()

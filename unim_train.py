@@ -71,7 +71,7 @@ def main(args):
             loss.backward()
             optimizer.step()
 
-            if i % args.log_step == 0:
+            if (i+1) % args.log_step == 0:
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Perplexity: {:5.4f}'
                       .format(epoch, args.num_epochs, i, total_step, loss.item(), np.exp(loss.item())))
 
@@ -89,7 +89,7 @@ if __name__ == '__main__':
     parser.add_argument('--log-step', type=int, default=10, help='step size for prining log info')
     parser.add_argument('--save-step', type=int, default=1000, help='step size for saving trained models')
 
-    parser.add_argument('--embed-size', type=int, default=512, help='dimension of word embedding vectors')
+    parser.add_argument('--embed-size', type=int, default=256, help='dimension of word embedding vectors')
     parser.add_argument('--hidden-size', type=int, default=512, help='dimension of lstm hidden states')
 
     parser.add_argument('--num_epochs', type=int, default=5)

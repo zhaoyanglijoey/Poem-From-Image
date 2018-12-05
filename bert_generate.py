@@ -31,10 +31,11 @@ def main(args):
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     basic_tokenizer = BasicTokenizer()
 
-    model = BertLMGenerator(len(word2idx))
+    model = BertGenerator(len(word2idx))
     model = DataParallel(model)
     model.load_state_dict(torch.load(args.load))
     model.to(device)
+    model.eval()
 
     examples = [poem_features[0], img_features[0]]
 

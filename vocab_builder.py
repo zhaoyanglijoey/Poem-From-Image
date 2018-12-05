@@ -10,8 +10,8 @@ def main(args):
         multim = json.load(f)
         unim = json.load(unif)
 
-    word2idx, idx2word = util.build_vocab_bert(unim + multim, args.threshold)
-    sys.write('vocab size {}'.format(len(word2idx)))
+    word2idx, idx2word = util.build_vocab(unim + multim, args.threshold)
+    sys.stderr.write('vocab size {}\n'.format(len(word2idx)))
     with open(args.vocab_path, 'wb') as f:
         pickle.dump([word2idx, idx2word], f)
 

@@ -3,8 +3,14 @@ from tqdm import tqdm
 import sys, os
 import collections
 import nltk
+import torch
 import pickle
 from pytorch_pretrained_bert import BertTokenizer, BasicTokenizer
+
+
+def normalize(t):
+    out = t / torch.norm(t, dim=-1, keepdim=True)
+    return out
 
 def add_word(word2idx, idx2word, word):
     if word not in word2idx:
@@ -20,7 +26,7 @@ def process_one_poem(poem):
     :return: list: tokens
     """
 
-    poem = poem.replace('\n', ' . ')  # use "." as new line symbol?
+    poem = poem.replace('\n', ' ; ')  # use "." as new line symbol?
     tokens = nltk.tokenize.word_tokenize(poem)
     return tokens
 
@@ -41,7 +47,7 @@ def build_vocab(data, threshold):
         tokens = process_one_poem(entry['poem'])
         counter.update(tokens)
 
-    words = [word for word, cnt in counter.items()]
+    words = [word for word, cnt in counter.items() if cnt >= threshold]
 
     sys.stderr.write('Adding words...\n')
     for word in tqdm(words):
@@ -65,15 +71,16 @@ def build_vocab_bert(data, threshold):
     sys.stderr.write('Parsing data...\n')
     for entry in tqdm(data):
         # tokens = process_one_poem(entry['poem'])
-        tokens = basic_tokenizer.tokenize(entry['poem'])
-        # counter.update(tokens)
-        [add_word(word2idx, idx2word, word) for word in tokens]
+        tokens = basic_tokenizer.tokenize(entry['poem'].replace('\n', ' ; '))
+        # tokens = entry['poem'].replace('\n', ' ; ').split()
+        counter.update(tokens)
+        # [add_word(word2idx, idx2word, word) for word in tokens]
 
-    # words = [word for word, cnt in counter.items()]
-    #
-    # sys.stderr.write('Adding words...\n')
-    # for word in tqdm(words):
-    #     add_word(word2idx, idx2word, word)
+    words = [word for word, cnt in counter.items() if cnt > 2]
+
+    sys.stderr.write('Adding words...\n')
+    for word in tqdm(words):
+        add_word(word2idx, idx2word, word)
 
     return word2idx, idx2word
 

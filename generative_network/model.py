@@ -3,6 +3,10 @@ from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence
 import torch.nn.functional as F
 
+def normalize(t):
+    out = t / torch.norm(t, dim=-1, keepdim=True)
+    return out
+
 
 class DecoderRNN(nn.Module):
     """
@@ -22,9 +26,11 @@ class DecoderRNN(nn.Module):
         self.sos_index = sos_index
         self.device = device
         self.embed = nn.Embedding(vocab_size, embed_size)
-        self.gru = nn.GRU(embed_size, hidden_size, num_layers=1, batch_first=True)
+        self.rnn = nn.lstm(embed_size, hidden_size, num_layers=1, batch_first=True)
         self.linear = nn.Linear(hidden_size, vocab_size)
         self.max_seq_length = max_seq_length
+        self.dropout = nn.Dropout(0.3)
+        self.linear.weight = self.embed.weight # tie weights
 
     def forward(self, features, poem_word_indices, lengths):
         """
@@ -35,12 +41,14 @@ class DecoderRNN(nn.Module):
         :return: Distribution. (words_in_batch, size_vocab)
         """
         """Decode image feature vectors and generates captions."""
+        features = normalize(features)
         embeddings = self.embed(poem_word_indices)
+        embeddings = self.dropout(embeddings)
         packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
         # make sure image features size equal to GRU hidden_size
         hidden_states = features.unsqueeze(0)
-        gru_outputs, _ = self.gru(packed, hidden_states)
-        outputs = self.linear(gru_outputs[0])
+        rnn_outputs, _ = self.rnn(packed, hidden_states)
+        outputs = self.linear(rnn_outputs[0])
         return outputs
 
     def sample(self, features):
@@ -50,6 +58,7 @@ class DecoderRNN(nn.Module):
         :return: contents of poem. (batch_size, max_seq_length)
         """
         sampled_ids = []
+        features = normalize(features)
         batch_size = features.shape[0]
 
         # use <sos> as init input
@@ -60,7 +69,7 @@ class DecoderRNN(nn.Module):
         hidden_states = features.unsqueeze(0)  # add one dimension as num_layers * num_directions (which is 1)
 
         for i in range(self.max_seq_length):
-            lstm_outputs, hidden_states = self.gru(inputs, hidden_states)  # lstm_outputs: (batch_size, 1, hidden_size)
+            lstm_outputs, hidden_states = self.lstm(inputs, hidden_states)  # lstm_outputs: (batch_size, 1, hidden_size)
             outputs = self.linear(lstm_outputs.squeeze(1))  # outputs:  (batch_size, vocab_size)
             _, predicted = outputs.max(1)  # predicted: (batch_size)
             sampled_ids.append(predicted)
