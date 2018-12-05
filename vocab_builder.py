@@ -1,5 +1,5 @@
 # TODO: finish vocab builder using nltk.tokenize.word_tokenize. Add <UNK> <PAD> tags
-import argparse
+import argparse, sys
 import json
 import util
 import pickle
@@ -11,6 +11,7 @@ def main(args):
         unim = json.load(unif)
 
     word2idx, idx2word = util.build_vocab_bert(unim + multim, args.threshold)
+    sys.write('vocab size {}'.format(len(word2idx)))
     with open(args.vocab_path, 'wb') as f:
         pickle.dump([word2idx, idx2word], f)
 

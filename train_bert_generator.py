@@ -104,11 +104,11 @@ if __name__ == '__main__':
     parser.add_argument('--embed-size', type=int, default=512, help='dimension of word embedding vectors')
     parser.add_argument('--hidden-size', type=int, default=512, help='dimension of lstm hidden states')
 
-    parser.add_argument('--num-epochs', type=int, default=4)
+    parser.add_argument('-e', '--num-epochs', type=int, default=10)
 
     parser.add_argument('--num-workers', type=int, default=4)
     parser.add_argument('--batch-size', type=int, default=96)
-    parser.add_argument('--lr', type=float, default=1e-6)
+    parser.add_argument('--lr', type=float, default=3e-6)
     parser.add_argument('--pt', default=False, action='store_true', help='prototype mode')
     parser.add_argument('-r', '--restore', default=False, action='store_true', help='restore from check point')
     args = parser.parse_args()

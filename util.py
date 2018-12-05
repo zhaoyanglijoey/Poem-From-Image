@@ -54,7 +54,7 @@ def build_vocab_bert(data, threshold):
     sys.stderr.write('building vocab...\n')
     word2idx = {}
     idx2word = {}
-    add_word(word2idx, idx2word, '<PAD>')  # padding
+    add_word(word2idx, idx2word, '[PAD]')  # padding
     add_word(word2idx, idx2word, '[CLS]')  # start of poem
     add_word(word2idx, idx2word, '[SEP]')  # end of sentence (end of poem)
     # add_word(word2idx, idx2word, '<EOL>')  # end of line
