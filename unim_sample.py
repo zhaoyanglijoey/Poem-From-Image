@@ -70,7 +70,7 @@ def main(args):
 
     word2idx, idx2word = util.read_vocab_pickle(args.vocab_path)
 
-    examples = [poem_features[0], img_features[0]]
+    examples = [img_features[0], img_features[1]]
     for feature in examples:
         feature = torch.tensor(feature).unsqueeze(0).to(device)
         sample_ids = decoder.sample(feature).cpu().numpy()[0]

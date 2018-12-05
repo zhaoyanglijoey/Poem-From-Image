@@ -25,8 +25,10 @@ def main(args):
         multim = json.load(f)
         unim = json.load(unif)
 
+    multim = util.filter_multim(multim)
     with open('data/img_features.pkl', 'rb') as f:
         features = pickle.load(f)
+
 
     # make sure vocab exists
     word2idx, idx2word = util.read_vocab_pickle(args.vocab_path)
@@ -54,9 +56,13 @@ def main(args):
     sys.stderr.write('Start training...\n')
     total_step = len(data_loader)
     decoder.train()
+    global_step = 0
     for epoch in range(args.num_epochs):
         scheduler.step()
-        for i, (batch) in enumerate(tqdm(data_loader)):
+        running_ls = 0
+        acc_ls = 0
+        start = time.time()
+        for i, (batch) in enumerate(data_loader):
             poem_embed, poems, lengths = [t.to(device) for t in batch]
             targets = pack_padded_sequence(poems[:, 1:], lengths, batch_first=True)[0]
 
@@ -64,36 +70,52 @@ def main(args):
             # poem_embed = encoder(ids, mask)
             outputs = decoder(poem_embed, poems, lengths)
             loss = criterion(outputs, targets)
-            loss.backward()
+            loss.backward(torch.ones_like(loss))
+            running_ls += loss.mean().item()
+            acc_ls += loss.mean().item()
+
+            for param in decoder.parameters():
+                torch.nn.utils.clip_grad_norm_(param, 0.25)
+
             optimizer.step()
+            global_step += 1
 
             if (i+1) % args.log_step == 0:
-                print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Perplexity: {:5.4f}'
-                      .format(epoch+1, args.num_epochs, i+1, total_step, loss.item(), np.exp(loss.item())))
+                elapsed_time = time.time() - start
+                iters_per_sec = (i + 1) / elapsed_time
+                remaining = (total_step - i - 1) / iters_per_sec
+                remaining_fmt = time.strftime("%H:%M:%S", time.gmtime(remaining))
+                elapsed_fmt = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
 
-            if (i+1) % args.save_step == 0:
+                print('[{}/{}, {}/{}], ls: {:.2f}, Acc: {:.2f} Perp: {:5.2f} {:.3}it/s {}<{}'
+                      .format(epoch+1, args.num_epochs, i+1, total_step, running_ls / args.log_step,
+                              acc_ls / (i+1), np.exp(acc_ls / (i+1)),
+                              iters_per_sec, elapsed_fmt, remaining_fmt ) )
+                running_ls = 0
+
+            if global_step % args.save_step == 0:
                 torch.save(decoder.state_dict(), args.ckpt)
         # Save the model checkpoints
-        torch.save(decoder.state_dict(), os.path.join(
-            args.save_model_path, 'decoder_multim-{}.ckpt'.format(epoch+1)))
-
+        # torch.save(decoder.state_dict(), os.path.join(
+        #     args.save_model_path, 'decoder_multim-{}.ckpt'.format(epoch+1)))
+    torch.save(decoder.state_dict(), args.save)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model-path', type=str, default='saved_model/embedder.pth' , help='path for loading pre-trained models')
-    parser.add_argument('--save-model-path', type=str, default='saved_model' , help='path for saving trained models')
+    parser.add_argument('--save', type=str, default='saved_model/lstm_gen_multim.pth' , help='path for saving trained models')
     parser.add_argument('--vocab-path', type=str, default='data/vocab.pkl', help='path for vocabulary file')
-    parser.add_argument('--log-step', type=int, default=20, help='step size for prining log info')
-    parser.add_argument('--save-step', type=int, default=100, help='step size for saving trained models')
+    parser.add_argument('--log-step', type=int, default=50, help='step size for prining log info')
+    parser.add_argument('--save-step', type=int, default=500, help='step size for saving trained models')
 
     parser.add_argument('--embed-size', type=int, default=512, help='dimension of word embedding vectors')
     parser.add_argument('--hidden-size', type=int, default=512, help='dimension of lstm hidden states')
 
-    parser.add_argument('--num_epochs', type=int, default=10)
+    parser.add_argument('-e' ,'--num-epochs', type=int, default=100)
 
     parser.add_argument('--num-workers', type=int, default=4)
-    parser.add_argument('--batch-size', type=int, default=64)
-    parser.add_argument('--learning-rate', type=float, default=3e-5)
+    parser.add_argument('--batch-size', type=int, default=128)
+    parser.add_argument('--learning-rate', type=float, default=3e-4)
     parser.add_argument('-r', '--restore', default=False, action='store_true', help='restore from check point')
     parser.add_argument('--ckpt', default='saved_model/lstm_gen_multim_ckpt.pth')
 

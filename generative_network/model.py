@@ -31,6 +31,7 @@ class DecoderRNN(nn.Module):
         self.max_seq_length = max_seq_length
         self.dropout = nn.Dropout(0.3)
         self.linear.weight = self.embed.weight # tie weights
+        self.rnn_cell = nn.LSTMCell(embed_size, hidden_size)
 
     def forward(self, features, poem_word_indices, lengths):
         """
@@ -42,13 +43,19 @@ class DecoderRNN(nn.Module):
         """
         """Decode image feature vectors and generates captions."""
         features = normalize(features)
+        features = self.dropout(features)
+        (h, c) = self.rnn_cell(features)
         embeddings = self.embed(poem_word_indices)
         embeddings = self.dropout(embeddings)
         packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
         # make sure image features size equal to GRU hidden_size
-        hidden_states = features.unsqueeze(0)
-        rnn_outputs, _ = self.rnn(packed, (hidden_states, hidden_states))
-        outputs = self.linear(rnn_outputs[0])
+        h = h.unsqueeze(0)
+        c = c.unsqueeze(0)
+        rnn_outputs, (_, _) = self.rnn(packed, (h, c))
+        (rnn_outputs_unpack, unpack_lengths) = torch.nn.utils.rnn.pad_packed_sequence(rnn_outputs, batch_first=True)
+        rnn_outputs_unpack = self.dropout(rnn_outputs_unpack)
+        rnn_outputs_repack = pack_padded_sequence(rnn_outputs_unpack, lengths, batch_first=True)
+        outputs = self.linear(rnn_outputs.data)
         return outputs
 
     def sample(self, features):
@@ -58,18 +65,21 @@ class DecoderRNN(nn.Module):
         :return: contents of poem. (batch_size, max_seq_length)
         """
         features = normalize(features)
-        batch_size = features.shape[0]
-        sampled_ids = [torch.full((batch_size, ), 56, dtype=torch.long).to('cuda')]
 
+        batch_size = features.shape[0]
+        # sampled_ids = [torch.full((batch_size, ), 56, dtype=torch.long).to('cuda')]
+        sampled_ids = []
         # use <sos> as init input
-        start = torch.full((batch_size, 1), 56, dtype=torch.int).long().to(self.device)  # start symbol index is 1
+        start = torch.full((batch_size, 1), self.sos_index, dtype=torch.int).long().to(self.device)  # start symbol index is 1
         inputs = self.embed(start)  # inputs: (batch_size, 1, embed_size)
 
         # use img features as init hidden_states
-        hidden_states = (features.unsqueeze(0), features.unsqueeze(0))  # add one dimension as num_layers * num_directions (which is 1)
-
+        # hidden_states = (features.unsqueeze(0), features.unsqueeze(0))  # add one dimension as num_layers * num_directions (which is 1)
+        (h, c) = self.rnn_cell(features)
+        h = h.unsqueeze(0)
+        c = c.unsqueeze(0)
         for i in range(self.max_seq_length):
-            lstm_outputs, hidden_states = self.rnn(inputs, hidden_states)  # lstm_outputs: (batch_size, 1, hidden_size)
+            lstm_outputs, (h, c) = self.rnn(inputs, (h, c))  # lstm_outputs: (batch_size, 1, hidden_size)
             outputs = self.linear(lstm_outputs.squeeze(1))  # outputs:  (batch_size, vocab_size)
             _, predicted = outputs.max(1)  # predicted: (batch_size)
             sampled_ids.append(predicted)
