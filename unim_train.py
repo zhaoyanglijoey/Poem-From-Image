@@ -28,7 +28,6 @@ def main(args):
     with open('data/poem_features.pkl', 'rb') as f:
         features = pickle.load(f)
 
-
     # make sure vocab exists
     word2idx, idx2word = util.read_vocab_pickle(args.vocab_path)
 
@@ -40,15 +39,11 @@ def main(args):
     data_loader = get_poem_poem_dataset(args.batch_size, shuffle=True, num_workers=args.num_workers, json_obj=unim, features=features,
                                         max_seq_len=bert_max_seq_len, word2idx=word2idx, tokenizer=bert_tokenizer)
 
-    # init encode & decode model
-    # encoder = PoemImageEmbedModel(device)
-    # encoder = DataParallel(encoder)
-    # encoder.load_state_dict(torch.load(args.model_path))
-    # encoder = encoder.module.poem_embedder.to(device)
-    # encoder = DataParallel(encoder)
-
-    decoder = DecoderRNN(args.embed_size, args.hidden_size, len(word2idx), device).to(device)
+    decoder = DecoderRNN(args.embed_size, args.hidden_size, len(word2idx), device)
+    if args.restore:
+        decoder.load_state_dict(torch.load(args.ckpt))
     decoder = DataParallel(decoder)
+    decoder.to(device)
 
     # optimization config
     criterion = nn.CrossEntropyLoss()
@@ -64,7 +59,6 @@ def main(args):
             targets = pack_padded_sequence(poems[:, 1:], lengths, batch_first=True)[0]
 
             decoder.zero_grad()
-
             # poem_embed = encoder(ids, mask)
             outputs = decoder(poem_embed, poems, lengths)
             loss = criterion(outputs, targets)
@@ -75,6 +69,8 @@ def main(args):
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Perplexity: {:5.4f}'
                       .format(epoch, args.num_epochs, i, total_step, loss.item(), np.exp(loss.item())))
 
+            if (i+1) % args.save_step == 0:
+                torch.save(decoder.state_dict(), args.ckpt)
         # Save the model checkpoints
         torch.save(decoder.state_dict(), os.path.join(
             args.save_model_path, 'decoder-{}.ckpt'.format(epoch+1)))
@@ -86,16 +82,19 @@ if __name__ == '__main__':
     parser.add_argument('--save-model-path', type=str, default='saved_model' , help='path for saving trained models')
     parser.add_argument('--vocab-path', type=str, default='data/vocab.pkl', help='path for vocabulary file')
     parser.add_argument('--poem-path', type=str, default='data/unim_poem.json', help='path for train poem json file')
-    parser.add_argument('--log-step', type=int, default=10, help='step size for prining log info')
-    parser.add_argument('--save-step', type=int, default=1000, help='step size for saving trained models')
+    parser.add_argument('--log-step', type=int, default=20, help='step size for prining log info')
+    parser.add_argument('--save-step', type=int, default=100, help='step size for saving trained models')
 
     parser.add_argument('--embed-size', type=int, default=256, help='dimension of word embedding vectors')
     parser.add_argument('--hidden-size', type=int, default=512, help='dimension of lstm hidden states')
 
-    parser.add_argument('--num_epochs', type=int, default=5)
+    parser.add_argument('--num_epochs', type=int, default=10)
 
     parser.add_argument('--num-workers', type=int, default=4)
-    parser.add_argument('--batch-size', type=int, default=16)
-    parser.add_argument('--learning-rate', type=float, default=0.0001)
+    parser.add_argument('--batch-size', type=int, default=64)
+    parser.add_argument('--learning-rate', type=float, default=3e-5)
+    parser.add_argument('-r', '--restore', default=False, action='store_true', help='restore from check point')
+    parser.add_argument('--ckpt', default='saved_model/lstm_gen_ckpt.pth')
+
     args = parser.parse_args()
     main(args)

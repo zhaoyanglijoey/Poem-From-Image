@@ -26,7 +26,7 @@ class DecoderRNN(nn.Module):
         self.sos_index = sos_index
         self.device = device
         self.embed = nn.Embedding(vocab_size, embed_size)
-        self.rnn = nn.lstm(embed_size, hidden_size, num_layers=1, batch_first=True)
+        self.rnn = nn.LSTM(embed_size, hidden_size, num_layers=1, batch_first=True)
         self.linear = nn.Linear(hidden_size, vocab_size)
         self.max_seq_length = max_seq_length
         self.dropout = nn.Dropout(0.3)
