@@ -72,7 +72,7 @@ def main(args):
 
     examples = [poem_features[0], img_features[0]]
     for feature in examples:
-        feature = torch.tensor(feature).unsqeeze(0).to(device)
+        feature = torch.tensor(feature).unsqueeze(0).to(device)
         sample_ids = decoder.sample(feature).cpu().numpy()[0]
         result = []
         for word_idx in sample_ids:
@@ -91,7 +91,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--poem', type=str, required=True, help='input poem for generating poem')
+    # parser.add_argument('--poem', type=str, required=True, help='input poem for generating poem')
     parser.add_argument('--encoder-path', type=str, default='saved_model/embedder.pth',
                         help='path for trained encoder')
     parser.add_argument('--decoder-path', type=str, default='saved_model/decoder-1.ckpt',

@@ -25,7 +25,7 @@ def main(args):
         multim = json.load(f)
         unim = json.load(unif)
 
-    with open('data/poem_features.pkl', 'rb') as f:
+    with open('data/img_features.pkl', 'rb') as f:
         features = pickle.load(f)
 
     # make sure vocab exists
@@ -36,7 +36,8 @@ def main(args):
     bert_max_seq_len = 100
 
     # create data loader. the data will be in decreasing order of length
-    data_loader = get_poem_poem_dataset(args.batch_size, shuffle=True, num_workers=args.num_workers, json_obj=unim, features=features,
+    data_loader = get_poem_poem_dataset(args.batch_size, shuffle=True,
+                                        num_workers=args.num_workers, json_obj=multim, features=features,
                                         max_seq_len=bert_max_seq_len, word2idx=word2idx, tokenizer=bert_tokenizer)
 
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(word2idx), device)
@@ -74,7 +75,7 @@ def main(args):
                 torch.save(decoder.state_dict(), args.ckpt)
         # Save the model checkpoints
         torch.save(decoder.state_dict(), os.path.join(
-            args.save_model_path, 'decoder-{}.ckpt'.format(epoch+1)))
+            args.save_model_path, 'decoder_multim-{}.ckpt'.format(epoch+1)))
 
 
 if __name__ == '__main__':
@@ -82,7 +83,6 @@ if __name__ == '__main__':
     parser.add_argument('--model-path', type=str, default='saved_model/embedder.pth' , help='path for loading pre-trained models')
     parser.add_argument('--save-model-path', type=str, default='saved_model' , help='path for saving trained models')
     parser.add_argument('--vocab-path', type=str, default='data/vocab.pkl', help='path for vocabulary file')
-    parser.add_argument('--poem-path', type=str, default='data/unim_poem.json', help='path for train poem json file')
     parser.add_argument('--log-step', type=int, default=20, help='step size for prining log info')
     parser.add_argument('--save-step', type=int, default=100, help='step size for saving trained models')
 
@@ -95,7 +95,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch-size', type=int, default=64)
     parser.add_argument('--learning-rate', type=float, default=3e-5)
     parser.add_argument('-r', '--restore', default=False, action='store_true', help='restore from check point')
-    parser.add_argument('--ckpt', default='saved_model/lstm_gen_ckpt.pth')
+    parser.add_argument('--ckpt', default='saved_model/lstm_gen_multim_ckpt.pth')
 
     args = parser.parse_args()
     main(args)

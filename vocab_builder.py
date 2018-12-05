@@ -10,7 +10,7 @@ def main(args):
         multim = json.load(f)
         unim = json.load(unif)
 
-    word2idx, idx2word = util.build_vocab(unim + multim, args.threshold)
+    word2idx, idx2word = util.build_vocab(multim, args.threshold)
     sys.stderr.write('vocab size {}\n'.format(len(word2idx)))
     with open(args.vocab_path, 'wb') as f:
         pickle.dump([word2idx, idx2word], f)
@@ -20,7 +20,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--vocab_path', type=str, default='./data/vocab.pkl',
                         help='path for saving vocabulary wrapper')
-    parser.add_argument('--threshold', type=int, default=4,
+    parser.add_argument('--threshold', type=int, default=2,
                         help='minimum word count threshold')
     args = parser.parse_args()
     main(args)

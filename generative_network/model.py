@@ -57,19 +57,19 @@ class DecoderRNN(nn.Module):
         :param features: image features. (batch_size, feature_size)
         :return: contents of poem. (batch_size, max_seq_length)
         """
-        sampled_ids = []
         features = normalize(features)
         batch_size = features.shape[0]
+        sampled_ids = [torch.full((batch_size, ), 56, dtype=torch.long).to('cuda')]
 
         # use <sos> as init input
-        start = torch.full((batch_size, 1), self.sos_index, dtype=torch.int).long().to(self.device)  # start symbol index is 1
+        start = torch.full((batch_size, 1), 56, dtype=torch.int).long().to(self.device)  # start symbol index is 1
         inputs = self.embed(start)  # inputs: (batch_size, 1, embed_size)
 
         # use img features as init hidden_states
-        hidden_states = features.unsqueeze(0)  # add one dimension as num_layers * num_directions (which is 1)
+        hidden_states = (features.unsqueeze(0), features.unsqueeze(0))  # add one dimension as num_layers * num_directions (which is 1)
 
         for i in range(self.max_seq_length):
-            lstm_outputs, hidden_states = self.lstm(inputs, hidden_states)  # lstm_outputs: (batch_size, 1, hidden_size)
+            lstm_outputs, hidden_states = self.rnn(inputs, hidden_states)  # lstm_outputs: (batch_size, 1, hidden_size)
             outputs = self.linear(lstm_outputs.squeeze(1))  # outputs:  (batch_size, vocab_size)
             _, predicted = outputs.max(1)  # predicted: (batch_size)
             sampled_ids.append(predicted)
