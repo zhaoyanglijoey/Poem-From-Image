@@ -47,7 +47,7 @@ class DecoderRNN(nn.Module):
         packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
         # make sure image features size equal to GRU hidden_size
         hidden_states = features.unsqueeze(0)
-        rnn_outputs, _ = self.rnn(packed, hidden_states)
+        rnn_outputs, _ = self.rnn(packed, (hidden_states, hidden_states))
         outputs = self.linear(rnn_outputs[0])
         return outputs
 
