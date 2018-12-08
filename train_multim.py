@@ -8,11 +8,11 @@ from torch.utils.data import DataLoader
 from pytorch_pretrained_bert import BertTokenizer
 import os, sys, time
 from dataloader import PoemImageDataset, PoemImageEmbedDataset, get_poem_poem_dataset
-from model import VGG16_fc7_object, PoemImageEmbedModel
+from model import VGG16_fc7_object, PoemImageEmbedModel, DecoderRNN
 import json, pickle
 from util import load_vocab_json, build_vocab
 from torch.nn.utils.rnn import pack_padded_sequence
-from generative_network.model import DecoderRNN
+# from generative_network.model import DecoderRNN
 from tqdm import tqdm
 import argparse
 import util
@@ -26,6 +26,7 @@ def main(args):
         unim = json.load(unif)
 
     multim = util.filter_multim(multim)
+    # multim = multim[:128]
     with open('data/img_features.pkl', 'rb') as f:
         features = pickle.load(f)
 
@@ -43,26 +44,32 @@ def main(args):
                                         max_seq_len=bert_max_seq_len, word2idx=word2idx, tokenizer=bert_tokenizer)
 
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(word2idx), device)
+    decoder = DataParallel(decoder)
     if args.restore:
         decoder.load_state_dict(torch.load(args.ckpt))
-    decoder = DataParallel(decoder)
+    if args.load:
+        decoder.load_state_dict(torch.load(args.load))
     decoder.to(device)
 
     # optimization config
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(decoder.parameters(), lr=args.learning_rate)
-    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 4, 6], gamma=0.33)
+    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10, 40, 60], gamma=0.33)
 
     sys.stderr.write('Start training...\n')
     total_step = len(data_loader)
     decoder.train()
     global_step = 0
+    # for i, (batch) in enumerate(data_loader):
+    #     poem_embed, poems, lengths = [t.to(device) for t in batch]
+    running_ls = 0
     for epoch in range(args.num_epochs):
-        scheduler.step()
-        running_ls = 0
+        # scheduler.step()
         acc_ls = 0
         start = time.time()
+
         for i, (batch) in enumerate(data_loader):
+        # for i in range(1):
             poem_embed, poems, lengths = [t.to(device) for t in batch]
             targets = pack_padded_sequence(poems[:, 1:], lengths, batch_first=True)[0]
 
@@ -80,7 +87,7 @@ def main(args):
             optimizer.step()
             global_step += 1
 
-            if (i+1) % args.log_step == 0:
+            if global_step % args.log_step == 0:
                 elapsed_time = time.time() - start
                 iters_per_sec = (i + 1) / elapsed_time
                 remaining = (total_step - i - 1) / iters_per_sec
@@ -106,7 +113,7 @@ if __name__ == '__main__':
     parser.add_argument('--save', type=str, default='saved_model/lstm_gen_multim.pth' , help='path for saving trained models')
     parser.add_argument('--vocab-path', type=str, default='data/vocab.pkl', help='path for vocabulary file')
     parser.add_argument('--log-step', type=int, default=50, help='step size for prining log info')
-    parser.add_argument('--save-step', type=int, default=500, help='step size for saving trained models')
+    parser.add_argument('--save-step', type=int, default=200, help='step size for saving trained models')
 
     parser.add_argument('--embed-size', type=int, default=512, help='dimension of word embedding vectors')
     parser.add_argument('--hidden-size', type=int, default=512, help='dimension of lstm hidden states')
@@ -115,9 +122,10 @@ if __name__ == '__main__':
 
     parser.add_argument('--num-workers', type=int, default=4)
     parser.add_argument('--batch-size', type=int, default=128)
-    parser.add_argument('--learning-rate', type=float, default=3e-4)
+    parser.add_argument('--learning-rate', type=float, default=1e-4)
     parser.add_argument('-r', '--restore', default=False, action='store_true', help='restore from check point')
-    parser.add_argument('--ckpt', default='saved_model/lstm_gen_multim_ckpt.pth')
+    parser.add_argument('--ckpt', default='saved_model/lstm_gen_multim_2_ckpt.pth')
+    parser.add_argument('--load')
 
     args = parser.parse_args()
     main(args)

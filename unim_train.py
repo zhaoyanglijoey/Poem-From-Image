@@ -8,11 +8,11 @@ from torch.utils.data import DataLoader
 from pytorch_pretrained_bert import BertTokenizer
 import os, sys, time
 from dataloader import PoemImageDataset, PoemImageEmbedDataset, get_poem_poem_dataset
-from model import VGG16_fc7_object, PoemImageEmbedModel
+from model import VGG16_fc7_object, PoemImageEmbedModel, DecoderRNN
 import json, pickle
 from util import load_vocab_json, build_vocab
 from torch.nn.utils.rnn import pack_padded_sequence
-from generative_network.model import DecoderRNN
+# from generative_network.model import DecoderRNN
 from tqdm import tqdm
 import argparse
 import util
@@ -40,15 +40,15 @@ def main(args):
                                         max_seq_len=bert_max_seq_len, word2idx=word2idx, tokenizer=bert_tokenizer)
 
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(word2idx), device)
+    decoder = DataParallel(decoder)
     if args.restore:
         decoder.load_state_dict(torch.load(args.ckpt))
-    decoder = DataParallel(decoder)
     decoder.to(device)
 
     # optimization config
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(decoder.parameters(), lr=args.learning_rate)
-    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 4, 6], gamma=0.33)
+    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 3, 6], gamma=0.33)
 
     sys.stderr.write('Start training...\n')
     total_step = len(data_loader)
@@ -73,8 +73,8 @@ def main(args):
             if (i+1) % args.save_step == 0:
                 torch.save(decoder.state_dict(), args.ckpt)
         # Save the model checkpoints
-        torch.save(decoder.state_dict(), os.path.join(
-            args.save_model_path, 'decoder-{}.ckpt'.format(epoch+1)))
+        # torch.save(decoder.state_dict(), os.path.join(
+        #     args.save_model_path, 'decoder-{}.ckpt'.format(epoch+1)))
 
 
 if __name__ == '__main__':
@@ -93,7 +93,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--num-workers', type=int, default=4)
     parser.add_argument('--batch-size', type=int, default=64)
-    parser.add_argument('--learning-rate', type=float, default=3e-5)
+    parser.add_argument('--learning-rate', type=float, default=3e-4)
     parser.add_argument('-r', '--restore', default=False, action='store_true', help='restore from check point')
     parser.add_argument('--ckpt', default='saved_model/lstm_gen_ckpt.pth')
 

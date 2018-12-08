@@ -1,12 +1,12 @@
 import argparse
 import torch
-from pytorch_pretrained_bert import BertTokenizer
+from pytorch_pretrained_bert import BertTokenizer, BasicTokenizer
 from torch.nn import DataParallel
 
 import util
-from model import PoemImageEmbedModel
-from generative_network.model import DecoderRNN
-import dataloader
+from model import PoemImageEmbedModel, DecoderRNN
+# from generative_network.model import DecoderRNN
+import dataloader, glob2
 import json, pickle
 
 def sample_from_poem(poem, encoder, decoder, bert_tokenizer, bert_max_seq_len, idx2word, device):
@@ -46,16 +46,15 @@ def main(args):
     #                                     max_seq_len=bert_max_seq_len, word2idx=word2idx, tokenizer=bert_tokenizer)
 
     # init encode & decode model
-    # encoder = PoemImageEmbedModel(device)
-    # encoder = DataParallel(encoder)
-    # encoder.load_state_dict(torch.load(args.encoder_path))
-    # encoder = encoder.module.poem_embedder.to(device)
-    # encoder = DataParallel(encoder)
+    encoder = PoemImageEmbedModel(device)
+    encoder = DataParallel(encoder)
+    encoder.load_state_dict(torch.load(args.encoder_path))
+    encoder = encoder.module.img_embedder.to(device)
 
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(word2idx), device).to(device)
     decoder = DataParallel(decoder)
     decoder.load_state_dict(torch.load(args.decoder_path))
-    decoder = decoder.module.to(device)
+    decoder = decoder.to(device)
     decoder.eval()
 
     with open('data/multim_poem.json') as f, open('data/unim_poem.json') as unif:
@@ -70,20 +69,38 @@ def main(args):
 
     word2idx, idx2word = util.read_vocab_pickle(args.vocab_path)
 
-    examples = [img_features[0], img_features[1]]
+    examples = [img_features[0], img_features[1], img_features[2],img_features[8], poem_features[0]]
     for feature in examples:
         feature = torch.tensor(feature).unsqueeze(0).to(device)
-        sample_ids = decoder.sample(feature).cpu().numpy()[0]
+        sample_ids = decoder.module.sample(feature, temperature=args.temp).cpu().numpy()[0]
         result = []
         for word_idx in sample_ids:
             word = idx2word[word_idx]
             if word == ';':
                 word = ';\n'
             elif word == '<EOS>':
+                result.append(word)
                 break
             result.append(word)
         print(" ".join(result))
+        print()
 
+    test_images = glob2.glob('data/test_image_random/*.jpg')
+    test_images.sort()
+    for test_image in test_images:
+        print('img', test_image)
+        sample_ids = util.generate_from_one_img_lstm(test_image, device, encoder, decoder, args.temp)
+        result = []
+        for word_idx in sample_ids:
+            word = idx2word[word_idx]
+            if word == ';':
+                word = ';\n'
+            elif word == '<EOS>':
+                result.append(word)
+                break
+            result.append(word)
+        print(" ".join(result))
+        print()
     # poem = args.poem
     # result = sample_from_poem(poem, encoder, decoder, bert_tokenizer, bert_max_seq_len, idx2word, device)
     # print(result)
@@ -102,6 +119,7 @@ if __name__ == '__main__':
     parser.add_argument('--embed-size', type=int, default=512, help='dimension of word embedding vectors')
     parser.add_argument('--hidden-size', type=int, default=512, help='dimension of lstm hidden states')
     parser.add_argument('--num-layers', type=int, default=1, help='number of layers in lstm')
+    parser.add_argument('-t', '--temp', type=float, default=1)
     args = parser.parse_args()
     # print(args.poem)
     main(args)

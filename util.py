@@ -5,8 +5,33 @@ import collections
 import nltk
 import torch
 import pickle
+from PIL import Image
+import torchvision.transforms as transforms
 from pytorch_pretrained_bert import BertTokenizer, BasicTokenizer
 
+def generate_from_one_img_lstm(test_image, device, encoder, decoder,temp):
+    test_transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor()
+    ])
+    img = Image.open(test_image).convert('RGB')
+    img = test_transform(img).unsqueeze(0).to(device)
+    img_embed = encoder(img)
+    pred_words = decoder.module.sample(img_embed, temperature=temp).cpu().numpy()[0]
+    return pred_words
+
+def generate_from_one_img_bert(test_image, device, encoder, decoder,
+                     basic_tokenizer, tokenizer,word2idx, idx2word, temp):
+    test_transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor()
+    ])
+    img = Image.open(test_image).convert('RGB')
+    img = test_transform(img).unsqueeze(0).to(device)
+    img_embed = encoder(img)
+    pred_words = decoder.module.generate(img_embed, 70, basic_tokenizer, tokenizer,
+                                       word2idx, idx2word, 200, device, temp)
+    return pred_words
 
 def normalize(t):
     out = t / torch.norm(t, dim=-1, keepdim=True)
@@ -26,7 +51,7 @@ def process_one_poem(poem):
     :return: list: tokens
     """
 
-    # poem = poem.replace('\n', ' ; ')  # use "." as new line symbol?
+    poem = poem.replace('\n', ' ; ')  # use "." as new line symbol?
     tokens = nltk.tokenize.word_tokenize(poem)
     return tokens
 
@@ -76,7 +101,7 @@ def build_vocab_bert(data, threshold):
         counter.update(tokens)
         # [add_word(word2idx, idx2word, word) for word in tokens]
 
-    words = [word for word, cnt in counter.items() if cnt > 2]
+    words = [word for word, cnt in counter.items() if cnt >= threshold]
 
     sys.stderr.write('Adding words...\n')
     for word in tqdm(words):

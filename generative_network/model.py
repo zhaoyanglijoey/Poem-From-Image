@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence
 import torch.nn.functional as F
+import numpy as np
 
 def normalize(t):
     out = t / torch.norm(t, dim=-1, keepdim=True)
@@ -82,6 +83,8 @@ class DecoderRNN(nn.Module):
             lstm_outputs, (h, c) = self.rnn(inputs, (h, c))  # lstm_outputs: (batch_size, 1, hidden_size)
             outputs = self.linear(lstm_outputs.squeeze(1))  # outputs:  (batch_size, vocab_size)
             _, predicted = outputs.max(1)  # predicted: (batch_size)
+            # predicted = torch.sort(outputs, dim=1, descending=True)[1][:, 1]
+
             sampled_ids.append(predicted)
             inputs = self.embed(predicted)  # inputs: (batch_size, embed_size)
             inputs = inputs.unsqueeze(1)  # inputs: (batch_size, 1, embed_size)

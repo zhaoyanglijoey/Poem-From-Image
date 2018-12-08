@@ -20,15 +20,19 @@ def main(args):
         unim = json.load(unif)
     if args.pt:
         unim = unim[:2000]
+    multim = util.filter_multim(multim)
 
     with open('data/poem_features.pkl', 'rb') as f:
-        features = pickle.load(f)
-
+        poem_features = pickle.load(f)
+    with open('data/img_features.pkl', 'rb') as f:
+        img_features = pickle.load(f)
     word2idx, idx2word = util.read_vocab_pickle(args.vocab_path)
 
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     basic_tokenizer = BasicTokenizer()
-    unim_dataset = dataloader.UnimDataset(unim, features, basic_tokenizer, tokenizer, word2idx, max_seq_len=100)
+    # unim_dataset = dataloader.UnimDataset(unim, poem_features, basic_tokenizer, tokenizer, word2idx, max_seq_len=100)
+    unim_dataset = dataloader.UnimDataset(multim, img_features, basic_tokenizer, tokenizer, word2idx, max_seq_len=100)
+
     unim_dataloader = DataLoader(unim_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
 
     model = BertGenerator(len(word2idx))
@@ -94,10 +98,10 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--save', type=str, default='saved_model/bert_generator_fix.pth', help='path for saving trained models')
+    parser.add_argument('--save', type=str, default='saved_model/bert_generator.pth', help='path for saving trained models')
     parser.add_argument('--load', type=str)
-    parser.add_argument('--ckpt', default='saved_model/bert_generator_fix_ckpt.pth')
-    parser.add_argument('--vocab-path', type=str, default='data/vocab.pkl', help='path for vocabulary file')
+    parser.add_argument('--ckpt', default='saved_model/bert_generator_ckpt.pth')
+    parser.add_argument('--vocab-path', type=str, default='data/vocab_bert.pkl', help='path for vocabulary file')
     parser.add_argument('--poem-path', type=str, default='data/unim_poem.json', help='path for train poem json file')
     parser.add_argument('--log-step', type=int, default=50, help='step size for prining log info')
     parser.add_argument('--save-step', type=int, default=50, help='step size for saving trained models')
@@ -108,10 +112,11 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--num-epochs', type=int, default=10)
 
     parser.add_argument('--num-workers', type=int, default=4)
-    parser.add_argument('-b', '--batch-size', type=int, default=96)
-    parser.add_argument('--lr', type=float, default=1e-5)
+    parser.add_argument('-b', '--batch-size', type=int, default=80)
+    parser.add_argument('--lr', type=float, default=3e-4)
     parser.add_argument('--pt', default=False, action='store_true', help='prototype mode')
     parser.add_argument('-r', '--restore', default=False, action='store_true', help='restore from check point')
+    parser.add_argument('--multim', default=False, action='store_true')
     args = parser.parse_args()
 
     main(args)
