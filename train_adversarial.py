@@ -4,11 +4,13 @@ import torch.nn as nn
 from torch.nn import DataParallel
 import torchvision.transforms as transforms
 import torch.optim as optim
+import torch.nn.functional as F
+from torch.distributions import Categorical
 from torch.utils.data import DataLoader
-from pytorch_pretrained_bert import BertTokenizer
 import os, sys, time
+from torch.nn.utils.rnn import pad_packed_sequence
 from dataloader import PoemImageDataset, PoemImageEmbedDataset, get_poem_poem_dataset
-from model import VGG16_fc7_object, PoemImageEmbedModel, DecoderRNN
+from model import PoemImageEmbedModel, DecoderRNN, Discriminator
 import json, pickle
 from util import load_vocab_json, build_vocab
 from torch.nn.utils.rnn import pack_padded_sequence
@@ -27,21 +29,28 @@ def main(args):
 
     multim = util.filter_multim(multim)
     # multim = multim[:128]
-    with open('data/img_features.pkl', 'rb') as f:
-        features = pickle.load(f)
+    with open('data/img_features.pkl', 'rb') as fi, open('data/poem_features.pkl', 'rb') as fp:
+        img_features = pickle.load(fi)
+        poem_features = pickle.load(fp)
 
 
     # make sure vocab exists
     word2idx, idx2word = util.read_vocab_pickle(args.vocab_path)
 
     # will be used in embedder
-    bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     bert_max_seq_len = 100
+
+    if args.source == 'unim':
+        data = unim
+        features = poem_features
+    elif args.source == 'multim':
+        data = multim
+        features = img_features
 
     # create data loader. the data will be in decreasing order of length
     data_loader = get_poem_poem_dataset(args.batch_size, shuffle=True,
-                                        num_workers=args.num_workers, json_obj=multim, features=features,
-                                        max_seq_len=bert_max_seq_len, word2idx=word2idx, tokenizer=bert_tokenizer)
+                                        num_workers=args.num_workers, json_obj=data, features=features,
+                                        max_seq_len=bert_max_seq_len, word2idx=word2idx, tokenizer=None)
 
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(word2idx), device)
     decoder = DataParallel(decoder)
@@ -51,10 +60,16 @@ def main(args):
         decoder.load_state_dict(torch.load(args.load))
     decoder.to(device)
 
+    discriminator = Discriminator(args.embed_size, args.hidden_size, len(word2idx), num_labels=2)
+    discriminator.embed.weight = decoder.module.embed.weight
+    discriminator = DataParallel(discriminator)
+    discriminator.to(device)
+
     # optimization config
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(decoder.parameters(), lr=args.learning_rate)
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10, 40, 60], gamma=0.33)
+    optimizerD = torch.optim.Adam(discriminator.parameters(), lr=args.learning_rate)
 
     sys.stderr.write('Start training...\n')
     total_step = len(data_loader)
@@ -69,17 +84,46 @@ def main(args):
         start = time.time()
 
         for i, (batch) in enumerate(data_loader):
-        # for i in range(1):
-            poem_embed, poems, lengths = [t.to(device) for t in batch]
-            targets = pack_padded_sequence(poems[:, 1:], lengths, batch_first=True)[0]
+            poem_embed, ids, lengths = [t.to(device) for t in batch]
+            targets = pack_padded_sequence(ids[:, 1:], lengths, batch_first=True)[0]
+            # train discriminator
+
+            # train with real
+            discriminator.zero_grad()
+            pred_real = discriminator(ids[:, 1:], lengths)
+            real_label = torch.ones(ids.size(0), dtype=torch.long).to(device)
+            loss_d_real = criterion(pred_real, real_label)
+            loss_d_real.backward(torch.ones_like(loss_d_real), retain_graph=True)
+
+            # train with fake
+
+            logits = decoder(poem_embed, ids, lengths)
+            weights = F.softmax(logits, dim=-1)
+            m = Categorical(probs=weights)
+            generated_ids = m.sample()
+
+            # generated_ids = torch.argmax(logits, dim=-1)
+            pred_fake = discriminator(generated_ids.detach(), lengths)
+            fake_label = torch.zeros(ids.size(0)).long().to(device)
+            loss_d_fake = criterion(pred_fake, fake_label)
+            loss_d_fake.backward(torch.ones_like(loss_d_fake), retain_graph=True)
+
+            loss_d = loss_d_real.mean().item() + loss_d_fake.mean().item()
+
+            optimizerD.step()
 
             decoder.zero_grad()
-            # poem_embed = encoder(ids, mask)
-            outputs = decoder(poem_embed, poems, lengths)
-            loss = criterion(outputs, targets)
+            reward = F.softmax(pred_fake, dim=-1)[:, 1].unsqueeze(-1)
+            loss_r = -m.log_prob(generated_ids) * reward
+            loss_r.backward(torch.ones_like(loss_r), retain_graph=True)
+            loss_r = loss_r.mean().item()
+
+            loss = criterion(pack_padded_sequence(logits, lengths, batch_first=True)[0], targets)
             loss.backward(torch.ones_like(loss))
-            running_ls += loss.mean().item()
-            acc_ls += loss.mean().item()
+            loss = loss.mean().item()
+            # loss = loss_r
+            running_ls += loss
+            acc_ls += loss
 
             for param in decoder.parameters():
                 torch.nn.utils.clip_grad_norm_(param, 0.25)
@@ -94,9 +138,9 @@ def main(args):
                 remaining_fmt = time.strftime("%H:%M:%S", time.gmtime(remaining))
                 elapsed_fmt = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
 
-                print('[{}/{}, {}/{}], ls: {:.2f}, Acc: {:.2f} Perp: {:5.2f} {:.3}it/s {}<{}'
-                      .format(epoch+1, args.num_epochs, i+1, total_step, running_ls / args.log_step,
-                              acc_ls / (i+1), np.exp(acc_ls / (i+1)),
+                print('[{}/{}, {}/{}], ls_d:{:.2f}, ls_r:{:.2f} ls: {:.2f}, Acc: {:.2f} Perp: {:5.2f} {:.3}it/s {}<{}'
+                      .format(epoch+1, args.num_epochs, i+1, total_step, loss_d, loss_r,
+                              running_ls / args.log_step, acc_ls / (i+1), np.exp(acc_ls / (i+1)),
                               iters_per_sec, elapsed_fmt, remaining_fmt ) )
                 running_ls = 0
 
@@ -110,9 +154,9 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model-path', type=str, default='saved_model/embedder.pth' , help='path for loading pre-trained models')
-    parser.add_argument('--save', type=str, default='saved_model/lstm_gen_multim.pth' , help='path for saving trained models')
+    parser.add_argument('--save', type=str, default='saved_model/lstm_gen_D.pth' , help='path for saving trained models')
     parser.add_argument('--vocab-path', type=str, default='data/vocab.pkl', help='path for vocabulary file')
-    parser.add_argument('--log-step', type=int, default=50, help='step size for prining log info')
+    parser.add_argument('--log-step', type=int, default=10, help='step size for prining log info')
     parser.add_argument('--save-step', type=int, default=200, help='step size for saving trained models')
 
     parser.add_argument('--embed-size', type=int, default=512, help='dimension of word embedding vectors')
@@ -121,11 +165,12 @@ if __name__ == '__main__':
     parser.add_argument('-e' ,'--num-epochs', type=int, default=100)
 
     parser.add_argument('--num-workers', type=int, default=4)
-    parser.add_argument('--batch-size', type=int, default=128)
+    parser.add_argument('-b', '--batch-size', type=int, default=32)
     parser.add_argument('--learning-rate', type=float, default=1e-4)
     parser.add_argument('-r', '--restore', default=False, action='store_true', help='restore from check point')
-    parser.add_argument('--ckpt', default='saved_model/lstm_gen_multim_2_ckpt.pth')
+    parser.add_argument('--ckpt', default='saved_model/lstm_gen_D_ckpt.pth')
     parser.add_argument('--load')
+    parser.add_argument('--source', default='unim', help='training data; unim or multim')
 
     args = parser.parse_args()
     main(args)

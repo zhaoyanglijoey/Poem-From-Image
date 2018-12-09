@@ -1,6 +1,6 @@
 import argparse
 import torch
-from pytorch_pretrained_bert import BertTokenizer, BasicTokenizer
+# from pytorch_pretrained_bert import BertTokenizer, BasicTokenizer
 from torch.nn import DataParallel
 
 import util
@@ -38,7 +38,7 @@ def main(args):
     # make sure vocab exists
     word2idx, idx2word = util.read_vocab_pickle(args.vocab_path)
     # will be used in embedder
-    bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    # bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     bert_max_seq_len = 100
 
     # # create data loader. the data will be in decreasing order of length
@@ -53,7 +53,7 @@ def main(args):
 
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(word2idx), device).to(device)
     decoder = DataParallel(decoder)
-    decoder.load_state_dict(torch.load(args.decoder_path))
+    decoder.load_state_dict(torch.load(args.load))
     decoder = decoder.to(device)
     decoder.eval()
 
@@ -69,7 +69,8 @@ def main(args):
 
     word2idx, idx2word = util.read_vocab_pickle(args.vocab_path)
 
-    examples = [img_features[0], img_features[1], img_features[2],img_features[8], poem_features[0]]
+    examples = [img_features[0], img_features[1], img_features[2],
+                img_features[3], img_features[4], img_features[5]]
     for feature in examples:
         feature = torch.tensor(feature).unsqueeze(0).to(device)
         sample_ids = decoder.module.sample(feature, temperature=args.temp).cpu().numpy()[0]
@@ -101,9 +102,6 @@ def main(args):
             result.append(word)
         print(" ".join(result))
         print()
-    # poem = args.poem
-    # result = sample_from_poem(poem, encoder, decoder, bert_tokenizer, bert_max_seq_len, idx2word, device)
-    # print(result)
 
 
 if __name__ == '__main__':
@@ -111,7 +109,7 @@ if __name__ == '__main__':
     # parser.add_argument('--poem', type=str, required=True, help='input poem for generating poem')
     parser.add_argument('--encoder-path', type=str, default='saved_model/embedder.pth',
                         help='path for trained encoder')
-    parser.add_argument('--decoder-path', type=str, default='saved_model/decoder-1.ckpt',
+    parser.add_argument('-l', '--load', type=str, default='saved_model/decoder-1.ckpt',
                         help='path for trained decoder')
     parser.add_argument('--vocab-path', type=str, default='data/vocab.pkl', help='path for vocabulary wrapper')
 

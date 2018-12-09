@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from pytorch_pretrained_bert import BertTokenizer
 import os, sys, time
 from dataloader import PoemImageDataset, PoemImageEmbedDataset, get_poem_poem_dataset
-from model import VGG16_fc7_object, PoemImageEmbedModel, DecoderRNN
+from model import PoemImageEmbedModel, DecoderRNN
 import json, pickle
 from util import load_vocab_json, build_vocab
 from torch.nn.utils.rnn import pack_padded_sequence
@@ -32,12 +32,13 @@ def main(args):
     word2idx, idx2word = util.read_vocab_pickle(args.vocab_path)
 
     # will be used in embedder
-    bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    # bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+
     bert_max_seq_len = 100
 
     # create data loader. the data will be in decreasing order of length
     data_loader = get_poem_poem_dataset(args.batch_size, shuffle=True, num_workers=args.num_workers, json_obj=unim, features=features,
-                                        max_seq_len=bert_max_seq_len, word2idx=word2idx, tokenizer=bert_tokenizer)
+                                        max_seq_len=bert_max_seq_len, word2idx=word2idx, tokenizer=None)
 
     decoder = DecoderRNN(args.embed_size, args.hidden_size, len(word2idx), device)
     decoder = DataParallel(decoder)

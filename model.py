@@ -11,6 +11,23 @@ def normalize(t):
     out = t / torch.norm(t, dim=-1, keepdim=True)
     return out
 
+class Discriminator(nn.Module):
+    def __init__(self, embed_size, hidden_size, vocab_size, num_labels = 2):
+        super(Discriminator, self).__init__()
+        self.hidden_size = hidden_size
+        self.embed = nn.Embedding(vocab_size, embed_size)
+        self.rnn = nn.LSTM(embed_size, hidden_size//2, num_layers=1, batch_first=True, bidirectional=True)
+        self.classifier = nn.Linear(hidden_size, num_labels)
+
+    def forward(self, seq, lengths):
+        embeddings = self.embed(seq)
+        packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
+        _, (hidden, _) = self.rnn(packed)
+        hidden = hidden.transpose(0, 1).contiguous().view(-1, self.hidden_size)
+        output = self.classifier(hidden)
+        return output
+
+
 class DecoderRNN(nn.Module):
     """
     Example training file: https://github.com/yunjey/pytorch-tutorial/blob/master/tutorials/03-advanced/image_captioning/train.py
@@ -56,10 +73,10 @@ class DecoderRNN(nn.Module):
         h = h.unsqueeze(0)
         c = c.unsqueeze(0)
         rnn_outputs, (_, _) = self.rnn(packed, (h, c))
-        # (rnn_outputs_unpack, unpack_lengths) = torch.nn.utils.rnn.pad_packed_sequence(rnn_outputs, batch_first=True)
-        # rnn_outputs_unpack = self.dropout(rnn_outputs_unpack)
+        (rnn_outputs_unpack, unpack_lengths) = torch.nn.utils.rnn.pad_packed_sequence(rnn_outputs, batch_first=True, total_length=poem_word_indices.size(1)-1)
+        rnn_outputs_unpack = self.dropout(rnn_outputs_unpack)
         # rnn_outputs_repack = pack_padded_sequence(rnn_outputs_unpack, lengths, batch_first=True)
-        outputs = self.linear(rnn_outputs.data)
+        outputs = self.linear(rnn_outputs_unpack)
         return outputs
 
     def sample(self, features, temperature = 1):
@@ -231,16 +248,16 @@ class ImageEmbed(nn.Module):
                               self.sentiment_feature.get_feature(x)], dim=1)
         return self.linear(features)
 
-class VGG16_fc7_object(nn.Module):
-    def __init__(self):
-        super(VGG16_fc7_object, self).__init__()
-        self.vgg = models.vgg16(pretrained=True)
-        for param in self.vgg.parameters():
-            param.requires_grad = False
-        self.fc7 = nn.Sequential(list(self.vgg.children())[0], list(self.vgg.children())[1][0])
-
-    def forward(self, x):
-        return self.fc7(x)
+# class VGG16_fc7_object(nn.Module):
+#     def __init__(self):
+#         super(VGG16_fc7_object, self).__init__()
+#         self.vgg = models.vgg16(pretrained=True)
+#         for param in self.vgg.parameters():
+#             param.requires_grad = False
+#         self.fc7 = nn.Sequential(list(self.vgg.children())[0], list(self.vgg.children())[1][0])
+#
+#     def forward(self, x):
+#         return self.fc7(x)
 
 class Res50_sentiment(nn.Module):
     def __init__(self):
