@@ -12,19 +12,25 @@ def normalize(t):
     return out
 
 class Discriminator(nn.Module):
-    def __init__(self, embed_size, hidden_size, vocab_size, num_labels = 2):
+    def __init__(self, embed_size, hidden_size, vocab_size, num_labels = 2, feature_size=512):
         super(Discriminator, self).__init__()
         self.hidden_size = hidden_size
         self.embed = nn.Embedding(vocab_size, embed_size)
         self.rnn = nn.LSTM(embed_size, hidden_size//2, num_layers=1, batch_first=True, bidirectional=True)
-        self.classifier = nn.Linear(hidden_size, num_labels)
+        self.classifier = nn.Linear(hidden_size+feature_size, num_labels)
+        self.dropout = nn.Dropout(0.2)
 
-    def forward(self, seq, lengths):
+
+    def forward(self, seq, lengths, features):
+        features = normalize(features)
+
         embeddings = self.embed(seq)
         packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
         _, (hidden, _) = self.rnn(packed)
         hidden = hidden.transpose(0, 1).contiguous().view(-1, self.hidden_size)
-        output = self.classifier(hidden)
+        output = torch.cat([hidden, features], dim=-1)
+        output = self.dropout(output)
+        output = self.classifier(output)
         return output
 
 
@@ -50,7 +56,7 @@ class DecoderRNN(nn.Module):
         self.rnn = nn.LSTM(embed_size, hidden_size, num_layers=1, batch_first=True)
         self.linear = nn.Linear(hidden_size, vocab_size)
         self.max_seq_length = max_seq_length
-        self.dropout = nn.Dropout(0.3)
+        self.dropout = nn.Dropout(0.2)
         self.linear.weight = self.embed.weight # tie weights
         self.rnn_cell = nn.LSTMCell(feature_size, hidden_size)
 

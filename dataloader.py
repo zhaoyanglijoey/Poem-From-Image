@@ -274,6 +274,8 @@ class PoemPoemDataset(Dataset):
         feature = torch.tensor(self.features[entry['id']])
         # prepare for rnn
         tokens = util.process_one_poem(entry['poem'])
+        if len(tokens) > self.max_seq_len - 2:
+            tokens = tokens[:self.max_seq_len - 2]
 
         word_indices = [self.word2idx['<SOS>']] + \
                        [self.word2idx[word] if word in self.word2idx else self.word2idx['<UNK>'] for word in tokens ] + \
