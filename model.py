@@ -6,6 +6,9 @@ import torch.nn.functional as F
 from pytorch_pretrained_bert import BertModel, BertForMaskedLM
 from dataloader import aligned_ids, convert_to_bert_ids, convert_to_bert_ids_no_sep
 from torch.nn.utils.rnn import pack_padded_sequence
+from torch.distributions import Categorical
+from copy import deepcopy
+
 
 def normalize(t):
     out = t / torch.norm(t, dim=-1, keepdim=True)
@@ -40,7 +43,7 @@ class DecoderRNN(nn.Module):
     Example sampling file: https://github.com/yunjey/pytorch-tutorial/blob/master/tutorials/03-advanced/image_captioning/sample.py
     """
     def __init__(self, embed_size, hidden_size, vocab_size, device, max_seq_length=70,
-                 sos_index=1, feature_size = 512):
+                 sos_index=1, eos_index=2, feature_size = 512):
         """
         Set the hyper-parameters and build the layers."
         :param embed_size: word embedding size
@@ -51,6 +54,7 @@ class DecoderRNN(nn.Module):
         """
         super(DecoderRNN, self).__init__()
         self.sos_index = sos_index
+        self.eos_index = eos_index
         self.device = device
         self.embed = nn.Embedding(vocab_size, embed_size)
         self.rnn = nn.LSTM(embed_size, hidden_size, num_layers=1, batch_first=True)
@@ -84,6 +88,38 @@ class DecoderRNN(nn.Module):
         # rnn_outputs_repack = pack_padded_sequence(rnn_outputs_unpack, lengths, batch_first=True)
         outputs = self.linear(rnn_outputs_unpack)
         return outputs
+
+    def sample_beamsearch(self, features, beamsize=10, k=3, temperature=1):
+        features = normalize(features)
+        prev_id = torch.tensor(self.sos_index, dtype=torch.long).to(self.device)
+        with torch.no_grad():
+            (h, c) = self.rnn_cell(features)
+            h = h.unsqueeze(0)
+            c = c.unsqueeze(0)
+            beams = [(0, h, c, [prev_id])]
+            for i in range(self.max_seq_length):
+                tmp = []
+                for avg_log_prob, h, c, history in beams:
+                    if history[-1].item() == self.eos_index:
+                        tmp.append((avg_log_prob, h, c, history))
+                        continue
+                    prev_id = history[-1].unsqueeze(0).unsqueeze(0)
+                    inputs = self.embed(prev_id)
+                    lstm_outputs, (h, c) = self.rnn(inputs, (h, c))  # lstm_outputs: (batch_size, 1, hidden_size)
+                    outputs = self.linear(lstm_outputs.squeeze(1))
+                    outputs = outputs[0]
+                    weights = F.softmax(outputs / temperature, dim=-1)
+                    preds = torch.multinomial(weights, k)
+                    # preds = m.sample(torch.Size(k))
+                    for pred in preds:
+                        new_history = deepcopy(history) + [pred]
+                        log_prob = weights[pred]
+                        avg_log_prob = (avg_log_prob * len(history) + log_prob) / len(new_history)
+                        tmp.append((avg_log_prob, h, c, new_history))
+                tmp.sort(reverse=True, key=lambda t:t[0].item())
+                beams = tmp[:beamsize]
+        return beams[0][3]
+
 
     def sample(self, features, temperature = 1):
         """

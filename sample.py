@@ -69,37 +69,41 @@ def main(args):
 
     word2idx, idx2word = util.read_vocab_pickle(args.vocab_path)
 
-    examples = [img_features[0], img_features[1], img_features[2],
-                img_features[3], img_features[4], img_features[5],
-                img_features[6], img_features[7], img_features[8]]
-    for feature in examples:
+    examples = [img_features[10], img_features[11], img_features[12],
+                img_features[13], img_features[14], img_features[15],
+                img_features[16], img_features[17], img_features[18]]
+    for i, feature in enumerate(examples):
+        print(i)
         feature = torch.tensor(feature).unsqueeze(0).to(device)
-        sample_ids = decoder.module.sample(feature, temperature=args.temp).cpu().numpy()[0]
+        sample_ids = decoder.module.sample_beamsearch(feature, args.beamsize, args.k, temperature=args.temp)
         result = []
         for word_idx in sample_ids:
-            word = idx2word[word_idx]
+            word = idx2word[word_idx.item()]
             if word == ';':
                 word = ';\n'
             elif word == '<EOS>':
-                result.append(word)
                 break
+            elif word == '<SOS>':
+                continue
             result.append(word)
         print(" ".join(result))
         print()
 
-    test_images = glob2.glob('data/test_image_random/*.jpg')
+    test_images = glob2.glob('data/test_image_random/*.jp*g')
     test_images.sort()
     for test_image in test_images:
         print('img', test_image)
-        sample_ids = util.generate_from_one_img_lstm(test_image, device, encoder, decoder, args.temp)
+        sample_ids = util.generate_from_one_img_lstm(test_image, device, encoder,
+                                                     decoder, args.beamsize, args.k, args.temp)
         result = []
         for word_idx in sample_ids:
-            word = idx2word[word_idx]
+            word = idx2word[word_idx.item()]
             if word == ';':
                 word = ';\n'
             elif word == '<EOS>':
-                result.append(word)
                 break
+            elif word == '<SOS>':
+                continue
             result.append(word)
         print(" ".join(result))
         print()
@@ -119,6 +123,8 @@ if __name__ == '__main__':
     parser.add_argument('--hidden-size', type=int, default=256, help='dimension of lstm hidden states')
     parser.add_argument('--num-layers', type=int, default=1, help='number of layers in lstm')
     parser.add_argument('-t', '--temp', type=float, default=1)
+    parser.add_argument('-b', '--beamsize', type=int, default=10)
+    parser.add_argument('-k', '--k', type=int, default=3)
     args = parser.parse_args()
     # print(args.poem)
     main(args)

@@ -9,7 +9,7 @@ from PIL import Image
 import torchvision.transforms as transforms
 from pytorch_pretrained_bert import BertTokenizer, BasicTokenizer
 
-def generate_from_one_img_lstm(test_image, device, encoder, decoder,temp):
+def generate_from_one_img_lstm(test_image, device, encoder, decoder, beamsize, k, temp):
     test_transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor()
@@ -17,7 +17,7 @@ def generate_from_one_img_lstm(test_image, device, encoder, decoder,temp):
     img = Image.open(test_image).convert('RGB')
     img = test_transform(img).unsqueeze(0).to(device)
     img_embed = encoder(img)
-    pred_words = decoder.module.sample(img_embed, temperature=temp).cpu().numpy()[0]
+    pred_words = decoder.module.sample_beamsearch(img_embed, beamsize, k,  temperature=temp)
     return pred_words
 
 def generate_from_one_img_bert(test_image, device, encoder, decoder,
