@@ -1,14 +1,15 @@
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, TensorDataset, DataLoader
 from PIL import Image
 import os, random, sys
 import util
+from tqdm import tqdm
 
 def convert_to_bert_ids(seq, tokenizer, max_seq_len):
     tokens = tokenizer.tokenize(seq)
     if len(tokens) > max_seq_len - 2:
         tokens = tokens[0:(max_seq_len-2)]
-
+    # length = len(tokens)
     tokens.insert(0, '[CLS]')
     tokens.append('[SEP]')
     ids = tokenizer.convert_tokens_to_ids(tokens)
@@ -24,6 +25,26 @@ def convert_to_bert_ids(seq, tokenizer, max_seq_len):
     mask = torch.tensor(mask, dtype=torch.long)
 
     return padded_ids, mask
+
+def convert_to_bert_ids_no_sep(seq, tokenizer, max_seq_len):
+    tokens = tokenizer.tokenize(seq)
+    if len(tokens) > max_seq_len - 2:
+        tokens = tokens[0:(max_seq_len-2)]
+    tokens.insert(0, '[CLS]')
+    length = len(tokens)
+    ids = tokenizer.convert_tokens_to_ids(tokens)
+    padded_ids = [0] * max_seq_len
+    padded_ids[:len(ids)] = ids
+    mask = [0] * max_seq_len
+    mask[:len(ids)] = [1] * len(ids)
+
+    # assert len(padded_ids) == max_seq_len
+    # assert len(mask) == max_seq_len
+
+    padded_ids = torch.tensor(padded_ids, dtype=torch.long)
+    mask = torch.tensor(mask, dtype=torch.long)
+
+    return padded_ids, mask, length
 
 class PoemImageDataset(Dataset):
     def __init__(self, data, img_dir, word2idx, transform = None, train=True):
@@ -55,6 +76,114 @@ class PoemImageDataset(Dataset):
         img = self.transform(img)
 
         return img, word_ind
+
+def aligned_ids(seq, basic_tokenizer, tokenizer, word2idx, max_seq_len):
+    seq = seq.replace('\n', ' ; ')
+    tokens = tokenizer.tokenize(seq)
+    if len(tokens) > max_seq_len - 2:
+        tokens = tokens[0:(max_seq_len-2)]
+
+    tokens.insert(0, '[CLS]')
+    tokens.append('[SEP]')
+    ids = tokenizer.convert_tokens_to_ids(tokens)
+    padded_ids = [0] * max_seq_len
+    padded_ids[:len(ids)] = ids
+    attention_mask = [0] * max_seq_len
+    attention_mask[:len(ids)] = [1] * len(ids)
+
+    padded_ids = torch.tensor(padded_ids, dtype=torch.long)
+    attention_mask = torch.tensor(attention_mask, dtype=torch.long)
+
+    basic_tokens = basic_tokenizer.tokenize(seq)
+    # basic_tokens = seq.split()
+    # basic_tokens.insert(0, '[CLS]')
+    align_mask = [0] * max_seq_len
+
+    word_ind = [0] * max_seq_len
+    i = 0
+    for j, token in enumerate(tokens):
+        if token.startswith('##'):
+            continue
+        else:
+            if token=='[SEP]':
+                word_ind[i] = (word2idx['[SEP]'])
+                i += 1
+                # align_mask[j] = 1
+                break
+            if token == '[CLS]':
+                align_mask[j] = 1
+                continue
+            if not basic_tokens[i].startswith(token):
+                print(basic_tokens, tokens, basic_tokens[i], token)
+            assert basic_tokens[i].startswith(token)
+            if basic_tokens[i] not in word2idx:
+                i += 1
+                continue
+            word_ind[i] = word2idx[basic_tokens[i]]
+            align_mask[j] = 1
+            i += 1
+    length_m1 = torch.tensor(i-1, dtype=torch.long)
+    align_mask = torch.tensor(align_mask, dtype=torch.long)
+    word_ind = torch.tensor(word_ind, dtype=torch.long)
+
+    return padded_ids, attention_mask, align_mask, word_ind, length_m1
+
+
+
+def build_unim_dataset(data, features, basic_tokenizer, tokenizer, word2idx, max_seq_len=256):
+    id_list = []
+    attn_mask_list = []
+    align_mask_list = []
+    word_ind_list = []
+    length_m1_list = []
+    feature_list = []
+    dataloader = []
+    sys.stderr.write('Building dataset...\n')
+    for entry in tqdm(data):
+        if entry['id'] == 28886:
+            continue
+        id, attn_mask, align_mask, word_ind, length_m1 = aligned_ids(
+            entry['poem'], basic_tokenizer, tokenizer, word2idx, max_seq_len)
+        feature = features[entry['id']]
+        feature_list.append(feature)
+        id_list.append(id)
+        attn_mask_list.append(attn_mask)
+        align_mask_list.append(align_mask)
+        word_ind_list.append(word_ind)
+        length_m1_list.append(length_m1)
+        # dataloader.append((id, attn_mask, align_mask, word_ind))
+    ids = torch.stack(id_list, 0)
+    attn_masks = torch.stack(attn_mask_list, 0)
+    align_masks = torch.stack(align_mask_list, 0)
+    word_inds = torch.stack(word_ind_list, 0)
+    lengths_m1 = torch.stack(length_m1_list, 0)
+    feature_tensors = torch.tensor(feature_list)
+    dataset = TensorDataset(ids, attn_masks, align_masks, word_inds, lengths_m1, feature_tensors)
+
+    return dataset
+
+class UnimDataset(Dataset):
+    def __init__(self, data, features, basic_tokenizer, tokenizer, word2idx, max_seq_len):
+        super(UnimDataset, self).__init__()
+        self.data = data
+        self.features = features
+        self.basic_tokenizer = basic_tokenizer
+        self.tokenizer = tokenizer
+        self.word2idx = word2idx
+        self.max_seq_len = max_seq_len
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, index):
+        entry = self.data[index]
+        if entry['id'] == 28886:
+            return self.__getitem__(random.randrange(len(self.data)))
+        feature = self.features[entry['id']]
+        id, attn_mask, align_mask, word_ind, length_m1 = aligned_ids(
+            entry['poem'], self.basic_tokenizer, self.tokenizer, self.word2idx, self.max_seq_len)
+        return id, attn_mask, align_mask, word_ind, length_m1, feature
+
 
 class PoemImageEmbedDataset(Dataset):
     def __init__(self, data, img_dir, tokenizer, max_seq_len, transform = None):
@@ -145,8 +274,12 @@ class PoemPoemDataset(Dataset):
         feature = torch.tensor(self.features[entry['id']])
         # prepare for rnn
         tokens = util.process_one_poem(entry['poem'])
+        if len(tokens) > self.max_seq_len - 2:
+            tokens = tokens[:self.max_seq_len - 2]
 
-        word_indices = [self.word2idx['<SOS>']] + [self.word2idx[word] for word in tokens] + [self.word2idx['<EOS>']]
+        word_indices = [self.word2idx['<SOS>']] + \
+                       [self.word2idx[word] if word in self.word2idx else self.word2idx['<UNK>'] for word in tokens ] + \
+                       [self.word2idx['<EOS>']]
         word_indices = torch.tensor(word_indices, dtype=torch.int64)
 
         return feature, word_indices
