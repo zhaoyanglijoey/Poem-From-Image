@@ -92,7 +92,7 @@ def main(args):
 
             # train with real
             discriminator.zero_grad()
-            pred_real = discriminator(ids[:, 1:], lengths, poem_embed)
+            pred_real = discriminator(ids[:, 1:], lengths)
             real_label = torch.ones(ids.size(0), dtype=torch.long).to(device)
             loss_d_real = criterion(pred_real, real_label)
             loss_d_real.backward(torch.ones_like(loss_d_real), retain_graph=True)
@@ -105,7 +105,7 @@ def main(args):
             generated_ids = m.sample()
 
             # generated_ids = torch.argmax(logits, dim=-1)
-            pred_fake = discriminator(generated_ids.detach(), lengths, poem_embed)
+            pred_fake = discriminator(generated_ids.detach(), lengths)
             fake_label = torch.zeros(ids.size(0)).long().to(device)
             loss_d_fake = criterion(pred_fake, fake_label)
             loss_d_fake.backward(torch.ones_like(loss_d_fake), retain_graph=True)

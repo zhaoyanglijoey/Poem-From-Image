@@ -69,7 +69,7 @@ def main(args):
 
     word2idx, idx2word = util.read_vocab_pickle(args.vocab_path)
 
-    examples = [img_features[10], img_features[11], img_features[12],
+    examples = [img_features[3], img_features[10], img_features[11], img_features[12],
                 img_features[13], img_features[14], img_features[15],
                 img_features[16], img_features[17], img_features[18]]
     for i, feature in enumerate(examples):

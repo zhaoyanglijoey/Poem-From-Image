@@ -1,11 +1,12 @@
-# Poem-From-Image
-Final project for CMPT419: Generate poem from image
+# Neural Poetry Generation with Visual Inspiration
+Final project for CMPT419: Neural Poetry Generation with Visual Inspiration
 
 ## Download dataset
 
 ```bash
 python download_image.py
 ```
+Dataset from [link](https://github.com/bei21/img2poem)
 
 ## Extract poem & img feature
 
@@ -20,10 +21,28 @@ where feature is a 512 dimension numpy vector.
 Output will be saved to `data/poem_features.plk` or 
 `data/img_features.plk`
 
-## Unim poem training
+## Training
 
+Before training, build vocabulary file, the vocabulary file will be
+saved to data/vocab.pkl
 ```
 python vocab_builder.py 
-python unim_train.py
 ```
 
+### Pretrain on Unim
+
+```
+python train_adversarial
+```
+
+### Tune on multim
+
+```
+python train_adversarial --source multim
+```
+
+Use `-h` flag to see more options
+
+## Reference
+
+[Beyond Narrative Description: Generating Poetry from Images by Multi-Adversarial Training](https://arxiv.org/abs/1804.08473)

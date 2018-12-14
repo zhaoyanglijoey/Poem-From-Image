@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from pytorch_pretrained_bert import BertTokenizer
 import os, sys, time, argparse, logging
 from dataloader import PoemImageDataset, PoemImageEmbedDataset
-from model import VGG16_fc7_object, PoemImageEmbedModel
+from model import PoemImageEmbedModel
 import json
 from util import load_vocab_json, build_vocab, check_path, filter_multim
 from tqdm import tqdm

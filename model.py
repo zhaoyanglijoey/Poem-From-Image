@@ -24,15 +24,15 @@ class Discriminator(nn.Module):
         self.dropout = nn.Dropout(0.2)
 
 
-    def forward(self, seq, lengths, features):
-        features = normalize(features)
+    def forward(self, seq, lengths):
+        # features = normalize(features)
 
         embeddings = self.embed(seq)
         packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
         _, (hidden, _) = self.rnn(packed)
         hidden = hidden.transpose(0, 1).contiguous().view(-1, self.hidden_size)
-        output = torch.cat([hidden, features], dim=-1)
-        output = self.dropout(output)
+        # output = torch.cat([hidden, features], dim=-1)
+        output = self.dropout(hidden)
         output = self.classifier(output)
         return output
 
