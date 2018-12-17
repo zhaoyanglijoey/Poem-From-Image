@@ -1,6 +1,12 @@
 # Neural Poetry Generation with Visual Inspiration
 Final project for CMPT419: Neural Poetry Generation with Visual Inspiration
 
+## Poster & report
+
+![](poster.jpg)
+
+[Report](419_PoemGen_Report.pdf)
+
 ## Download dataset
 
 ```bash
@@ -32,13 +38,13 @@ python vocab_builder.py
 ### Pretrain on Unim
 
 ```
-python train_adversarial
+python train_adversarial.py
 ```
 
 ### Tune on multim
 
 ```
-python train_adversarial --source multim
+python train_adversarial.py --source multim
 ```
 
 Use `-h` flag to see more options
